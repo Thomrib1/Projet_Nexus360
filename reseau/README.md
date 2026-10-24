@@ -22,4 +22,10 @@ Le modèle `GW-TEMPLATE` est une VM Rocky Linux 10.1 minimal à trois cartes (NA
 
 ## Construire une passerelle
 
-À compléter en phase 3.
+Prérequis : modèle `GW-TEMPLATE` (Rocky 10.1 minimal, clé SSH installée), `gw.env` adapté depuis `gw.env.example`.
+
+1. Cloner le modèle (clone complet), régler les cartes : NAT, LAN du site, VMnet10.
+2. Régénérer l'identité du clone : clés SSH du serveur et `/etc/machine-id`.
+3. Copier `gw-build.sh`, `gw.env.example` et `tests/gw-selftest.sh` dans `/tmp`, puis installer dans `/root` (`gw.env` en 0640, scripts en 0750).
+4. Depuis la console VMware : `sudo /root/gw-build.sh <n>`.
+5. Contrôler : `sudo /root/gw-selftest.sh <n>` doit afficher 14 PASS et 0 FAIL.

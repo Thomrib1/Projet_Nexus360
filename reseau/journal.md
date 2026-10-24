@@ -11,3 +11,5 @@
 | 2026-10-22 23:32 | GW-TEMPLATE | Installation Rocky 10.1 minimal, mises à jour, paquets, test des interfaces ens160 ens192 ens224 | OK | - |
 | 2026-10-22 23:33 | PC hôte | Clé SSH id_nexus360 créée, connexion par clé testée sur GW-TEMPLATE | OK | - |
 | 2026-10-22 23:34 | GW-TEMPLATE | Snapshot template-propre | OK | - |
+
+| 2026-10-24 21:45 | LNX-GW04 | Relais DHCP dhcrelay-gw actif vers 10.36.11.10 et 10.36.12.11 | OK | preuves/A8-gw04-relais-dhcp.png |
