@@ -18,3 +18,15 @@
 | 2026-10-25 00:01 | LNX-GW01 | gw-selftest.sh 1 : 14 PASS, 0 FAIL | OK | preuves/A8-selftest-gw01.png |
 | 2026-10-25 00:02 | LNX-GW01 / LNX-GW04 | Ping du backbone et routage entre les sites 1 et 4 | OK | preuves/A8-gw01-gw04-routage.png |
 | 2026-10-25 00:03 | LNX-GW01 | Snapshot gw-ok | OK | preuves/A8-gw01-snapshot.png |
+
+| 2026-10-25 01:04 | TMP-DHCP | Kea actif, configuration de substitution des étendues 10.36.14.0/24 et 10.36.15.0/24 | OK | preuves/A8-tmpdhcp-kea-config.png, preuves/A8-tmpdhcp-kea-actif.png |
+| 2026-10-25 01:04 | TMP-DHCP | Snapshot kea-ok | OK | preuves/A8-tmpdhcp-snapshot.png |
+
+| 2026-10-27 18:27 | LNX-GW04 / TMP-DHCP / TST-DHCP | Relais DHCP validé : bail 10.36.14.110 obtenu via LNX-GW04, giaddr 10.36.14.1 | OK | preuves/A8-relais-dhcp-giaddr.png, preuves/A8-tstdhcp-bail.png, preuves/A8-tmpdhcp-bail.png |
+
+| 2026-10-27 18:30 | TST-DHCP / TMP-DHCP | Routage de bout en bout entre les sites 4 et 1 (connexion SSH à travers LNX-GW04 et LNX-GW01) | OK | preuves/A8-routage-bout-en-bout.png |
+| 2026-10-27 18:45 | TMP-DHCP | Absence de NAT entre sites : pair vu en 10.36.14.110 | OK | preuves/A8-pas-de-nat-entre-sites.png |
+| 2026-10-27 19:00 | LNX-GW04 | MSS ramené de 1460 à 1240 sur le backbone | OK | preuves/A8-mss-lan-1460.png, preuves/A8-mss-1240.png |
+| 2026-10-27 19:15 | TST-DHCP | MTU du backbone : 1252 passe, 1300 refusé avec mtu = 1280 | OK | preuves/A8-mtu-1280.png |
+
+| 2026-10-27 20:00 | LNX-GW01 / LNX-GW04 / TMP-DHCP / TST-DHCP | Redémarrage dans l'ordre passerelles, serveur, client : services actifs, adresses revenues, ping de bout en bout 0 % de perte | OK | preuves/C4-redemarrage-gw01.png, preuves/C4-redemarrage-gw04.png, preuves/C4-redemarrage-tmpdhcp.png, preuves/C4-redemarrage-tstdhcp.png |

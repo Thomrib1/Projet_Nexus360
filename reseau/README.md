@@ -29,3 +29,13 @@ Prérequis : modèle `GW-TEMPLATE` (Rocky 10.1 minimal, clé SSH installée), `g
 3. Copier `gw-build.sh`, `gw.env.example` et `tests/gw-selftest.sh` dans `/tmp`, puis installer dans `/root` (`gw.env` en 0640, scripts en 0750).
 4. Depuis la console VMware : `sudo /root/gw-build.sh <n>`.
 5. Contrôler : `sudo /root/gw-selftest.sh <n>` doit afficher 14 PASS et 0 FAIL.
+
+## Ordre de démarrage
+
+1. Passerelles LNX-GW0n (attendre environ 60 secondes)
+2. Serveurs (DHCP de substitution TMP-DHCP ; DC, serveurs de fichiers et Linux chez les autres rôles)
+3. Postes de travail
+
+## DHCP de substitution
+
+`dhcp/kea-substitut.json` sert uniquement à valider le relais DHCP dans le lab. Il sera remplacé par le DHCP des DC.

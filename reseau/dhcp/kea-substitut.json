@@ -1,0 +1,33 @@
+{
+  "Dhcp4": {
+    "interfaces-config": { "interfaces": [ "ens160/10.36.11.10" ], "dhcp-socket-type": "udp" },
+    "lease-database": { "type": "memfile", "persist": true, "name": "/var/lib/kea/kea-leases4.csv" },
+    "valid-lifetime": 3600,
+    "subnet4": [
+      {
+        "id": 4,
+        "subnet": "10.36.14.0/24",
+        "pools": [ { "pool": "10.36.14.110 - 10.36.14.200" } ],
+        "option-data": [
+          { "name": "routers", "data": "10.36.14.1" },
+          { "name": "domain-name-servers", "data": "10.36.11.10, 10.36.12.11" },
+          { "name": "domain-name", "data": "ad.nexus360.test" }
+        ],
+        "reservations": [
+          { "hw-address": "00:50:56:2e:14:01", "ip-address": "10.36.14.101" },
+          { "hw-address": "00:50:56:2e:14:02", "ip-address": "10.36.14.102" }
+        ]
+      },
+      {
+        "id": 5,
+        "subnet": "10.36.15.0/24",
+        "pools": [ { "pool": "10.36.15.110 - 10.36.15.200" } ],
+        "option-data": [
+          { "name": "routers", "data": "10.36.15.1" },
+          { "name": "domain-name-servers", "data": "10.36.11.10, 10.36.12.11" },
+          { "name": "domain-name", "data": "ad.nexus360.test" }
+        ]
+      }
+    ]
+  }
+}
