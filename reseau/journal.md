@@ -30,3 +30,7 @@
 | 2026-10-27 19:15 | TST-DHCP | MTU du backbone : 1252 passe, 1300 refusé avec mtu = 1280 | OK | preuves/A8-mtu-1280.png |
 
 | 2026-10-27 20:00 | LNX-GW01 / LNX-GW04 / TMP-DHCP / TST-DHCP | Redémarrage dans l'ordre passerelles, serveur, client : services actifs, adresses revenues, ping de bout en bout 0 % de perte | OK | preuves/C4-redemarrage-gw01.png, preuves/C4-redemarrage-gw04.png, preuves/C4-redemarrage-tmpdhcp.png, preuves/C4-redemarrage-tstdhcp.png |
+
+| 2026-10-27 20:13 | TST-DHCP | Snapshot client-ok | OK | preuves/A8-tstdhcp-snapshot.png |
+
+| 2026-10-27 22:24 | LNX-GW04-bis | Reconstruction de LNX-GW04 depuis le dépôt : clone du modèle, gw-build.sh 4, selftest 14 PASS, bail et ping de bout en bout depuis TST-DHCP. Durée : 51 minutes entre la création du clone (21:33) et la fin du test, pauses de captures comprises | OK | preuves/A8-reconstruction-build.png, preuves/A8-reconstruction-selftest.png, preuves/A8-reconstruction-tstdhcp.png, preuves/A8-reconstruction-chrono.png |
