@@ -1,0 +1,58 @@
+// Politique d'accès du tailnet Nexus360 (versionnée dans reseau/tailnet-policy.hujson)
+// Format HuJSON : commentaires et virgules finales autorisés.
+{
+  "tagOwners": {
+    "tag:gateway": ["autogroup:admin"],
+  },
+
+  "hosts": {
+    "site1":     "10.36.11.0/24",
+    "site2":     "10.36.12.0/24",
+    "site3":     "10.36.13.0/24",
+    "site4":     "10.36.14.0/24",
+    "site5":     "10.36.15.0/24",
+    "dc01":      "10.36.11.10",
+    "srv-mgt01": "10.36.12.13",
+    "web01":     "10.36.13.21",
+    "bastion":   "10.36.13.22",
+    "mon01":     "10.36.13.23",
+  },
+
+  // Les routes de chaque site sont approuvées automatiquement si elles viennent d'une passerelle.
+  "autoApprovers": {
+    "routes": {
+      "10.36.11.0/24": ["tag:gateway"],
+      "10.36.12.0/24": ["tag:gateway"],
+      "10.36.13.0/24": ["tag:gateway"],
+      "10.36.14.0/24": ["tag:gateway"],
+      "10.36.15.0/24": ["tag:gateway"],
+    },
+  },
+
+  "acls": [
+    // 1. Les cinq sites communiquent entre eux (les passerelles routent sans NAT).
+    {
+      "action": "accept",
+      "src":    ["site1", "site2", "site3", "site4", "site5"],
+      "dst":    ["site1:*", "site2:*", "site3:*", "site4:*", "site5:*"],
+    },
+    // 2. Les utilisateurs des machines partagées n'atteignent que le bastion (SSH) et SRV-MGT01 (RDP, WinRM).
+    {
+      "action": "accept",
+      "src":    ["autogroup:shared"],
+      "dst":    ["bastion:22", "srv-mgt01:3389,5985,5986"],
+    },
+  ],
+
+  // Tests exécutés à chaque enregistrement : si un test échoue, la politique est refusée.
+  "tests": [
+    {
+      "src":    "10.36.14.101",
+      "accept": ["dc01:445", "mon01:9090"],
+    },
+    {
+      "src":  "10.36.14.101",
+      "deny": ["8.8.8.8:53"],
+    },
+  ],
+}
