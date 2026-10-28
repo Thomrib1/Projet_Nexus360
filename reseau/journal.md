@@ -37,3 +37,6 @@
 
 | 2026-10-28 01:00 | CLI-W10-test | Connectivité du poste de test : passerelle 10.36.14.1, trajet par 10.36.0.1 jusqu'à 10.36.11.10, port 22 joignable, sortie Internet par le NAT | OK | preuves/A8-cli-w10-connectivite.png, preuves/A8-cli-w10-internet.png |
 | 2026-10-28 01:01 | TMP-DHCP | Bail de 10.36.14.101 enregistré pour la MAC 00:50:56:2e:14:01 (réservation) | OK | preuves/A8-cli-w10-bail-kea.png |
+
+| 2026-10-28 19:34 | CLI-W11-01 | Renommage du poste en CLI-W11-01 (par les Paramètres après un refus de Rename-Computer), réservation 10.36.14.101 conservée | OK | preuves/A8-cli-w11-renommage-erreur.png, preuves/A8-cli-w11-renommage.png, preuves/A8-cli-w11-bail-kea-renomme.png |
+| 2026-10-28 19:44 | CLI-W11-01 | Snapshot cli-w11-01-pret | OK | preuves/A8-cli-w11-snapshot.png |
