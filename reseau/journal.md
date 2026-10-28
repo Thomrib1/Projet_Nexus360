@@ -42,3 +42,8 @@
 | 2026-10-28 19:44 | CLI-W11-01 | Snapshot cli-w11-01-pret | OK | preuves/A8-cli-w11-snapshot.png |
 
 | 2026-10-28 19:45 | CLI-W11-01 | Installation de Windows 11 Pro : écran réseau obligatoire à la configuration initiale (erreur 0xe000022f), compte local créé par contournement | OK | preuves/A8-cli-w11-oobe-reseau.png, preuves/A8-cli-w11-edition.png |
+
+| 2026-10-28 20:35 | LNX-GW05 | Clone de GW-TEMPLATE, identité régénérée, gw-build.sh 5 | OK | preuves/A8-gw05-cartes-vmware.png, preuves/A8-gw05-interfaces-avant.png, preuves/A8-gw05-fichiers-installes.png, preuves/A8-gw05-build.png |
+| 2026-10-28 20:35 | LNX-GW05 | gw-selftest.sh 5 : 14 PASS, 0 FAIL ; relais DHCP actif vers 10.36.11.10 et 10.36.12.11 | OK | preuves/A8-selftest-gw05.png, preuves/A8-gw05-relais-dhcp.png |
+| 2026-10-28 20:36 | LNX-GW05 / LNX-GW01 | Ping du backbone et routage entre les sites 5 et 1 | OK | preuves/A8-gw05-routage.png |
+| 2026-10-28 20:36 | LNX-GW05 | Snapshot gw-ok | OK | preuves/A8-gw05-snapshot.png |
