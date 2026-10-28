@@ -54,3 +54,5 @@
 
 | 2026-10-28 22:11
  | Dépôt Git | Preuves de CLI-W11-02 commitées directement sur main (branche oubliée), sans pull request ; contenu limité au journal et à des captures | OK | preuves/E3-historique-git.png |
+
+ | 2026-10-29 23:12 | LNX-GW04 | Tailscale installé et connecté au tailnet (adresse 100.86.136.5) ; selftest toujours à 14 PASS ; machines partagées visibles mais hors ligne | OK | preuves/A8-gw04-tailscale-build.png, preuves/A8-gw04-tailscale-status.png, preuves/A8-tailscale-console-gw04.png |
