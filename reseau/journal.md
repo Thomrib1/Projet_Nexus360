@@ -40,3 +40,5 @@
 
 | 2026-10-28 19:34 | CLI-W11-01 | Renommage du poste en CLI-W11-01 (par les Paramètres après un refus de Rename-Computer), réservation 10.36.14.101 conservée | OK | preuves/A8-cli-w11-renommage-erreur.png, preuves/A8-cli-w11-renommage.png, preuves/A8-cli-w11-bail-kea-renomme.png |
 | 2026-10-28 19:44 | CLI-W11-01 | Snapshot cli-w11-01-pret | OK | preuves/A8-cli-w11-snapshot.png |
+
+| 2026-10-28 19:45 | CLI-W11-01 | Installation de Windows 11 Pro : écran réseau obligatoire à la configuration initiale (erreur 0xe000022f), compte local créé par contournement | OK | preuves/A8-cli-w11-oobe-reseau.png, preuves/A8-cli-w11-edition.png |
