@@ -34,3 +34,6 @@
 | 2026-10-27 20:13 | TST-DHCP | Snapshot client-ok | OK | preuves/A8-tstdhcp-snapshot.png |
 
 | 2026-10-27 22:24 | LNX-GW04-bis | Reconstruction de LNX-GW04 depuis le dépôt : clone du modèle, gw-build.sh 4, selftest 14 PASS, bail et ping de bout en bout depuis TST-DHCP. Durée : 51 minutes entre la création du clone (21:33) et la fin du test, pauses de captures comprises | OK | preuves/A8-reconstruction-build.png, preuves/A8-reconstruction-selftest.png, preuves/A8-reconstruction-tstdhcp.png, preuves/A8-reconstruction-chrono.png |
+
+| 2026-10-28 01:00 | CLI-W10-test | Connectivité du poste de test : passerelle 10.36.14.1, trajet par 10.36.0.1 jusqu'à 10.36.11.10, port 22 joignable, sortie Internet par le NAT | OK | preuves/A8-cli-w10-connectivite.png, preuves/A8-cli-w10-internet.png |
+| 2026-10-28 01:01 | TMP-DHCP | Bail de 10.36.14.101 enregistré pour la MAC 00:50:56:2e:14:01 (réservation) | OK | preuves/A8-cli-w10-bail-kea.png |
