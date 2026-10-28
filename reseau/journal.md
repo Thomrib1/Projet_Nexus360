@@ -47,3 +47,7 @@
 | 2026-10-28 20:35 | LNX-GW05 | gw-selftest.sh 5 : 14 PASS, 0 FAIL ; relais DHCP actif vers 10.36.11.10 et 10.36.12.11 | OK | preuves/A8-selftest-gw05.png, preuves/A8-gw05-relais-dhcp.png |
 | 2026-10-28 20:36 | LNX-GW05 / LNX-GW01 | Ping du backbone et routage entre les sites 5 et 1 | OK | preuves/A8-gw05-routage.png |
 | 2026-10-28 20:36 | LNX-GW05 | Snapshot gw-ok | OK | preuves/A8-gw05-snapshot.png |
+
+| 2026-10-28 21:35 | CLI-W11-02 | Adresse 10.36.15.110 obtenue via le relais DHCP de LNX-GW05, trajet par 10.36.15.1 et 10.36.0.1 jusqu'à 10.36.11.10, adresse source conservée sans NAT | OK | preuves/A8-cli-w11-02-bail.png, preuves/A8-cli-w11-02-connectivite.png |
+| 2026-10-28 21:49 | CLI-W11-02 | Renommage du poste en CLI-W11-02 (Rename-Computer), bail renouvelé via le relais | OK | preuves/A8-cli-w11-02-renommage.png, preuves/A8-cli-w11-02-bail-kea.png |
+| 2026-10-28 21:50 | CLI-W11-02 | Snapshot cli-w11-02-pret | OK | preuves/A8-cli-w11-02-snapshot.png |
