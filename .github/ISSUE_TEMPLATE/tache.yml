@@ -1,0 +1,42 @@
+name: Tâche
+description: Une tâche du projet, rattachée à un rôle, une exigence et un jalon
+title: "[Rx] "
+labels: ["tache"]
+body:
+  - type: dropdown
+    id: role
+    attributes:
+      label: Rôle responsable
+      options:
+        - "1 — Identité"
+        - "2 — Services Windows"
+        - "3 — Linux"
+        - "4 — Exploitation"
+        - "5 — Réseau et postes"
+    validations:
+      required: true
+  - type: input
+    id: exigence
+    attributes:
+      label: Exigence(s) du sujet
+      placeholder: "ex. C3, E2"
+    validations:
+      required: true
+  - type: input
+    id: machines
+    attributes:
+      label: Machines (et PC qui les héberge)
+      placeholder: "ex. LNX-OPS01 (PC rôle 3)"
+  - type: textarea
+    id: dependances
+    attributes:
+      label: Dépend de (rôle + tâche)
+      placeholder: "ex. Rôle 1 : compte AD svc-backup créé (#14)"
+  - type: textarea
+    id: definition
+    attributes:
+      label: Fini quand…
+      description: Le résultat vérifiable (commande, capture, preuve)
+      placeholder: "ex. test-restauration.sh conforme + PV committé"
+    validations:
+      required: true

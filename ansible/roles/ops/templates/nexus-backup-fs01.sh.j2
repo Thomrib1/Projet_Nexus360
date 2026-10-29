@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# Sauvegarde quotidienne des partages de SRV-FS01 vers /srv/backup/fs01/<date>/<partage>.
+# Méthode : montage SMB 3 en LECTURE SEULE avec chiffrement (seal), puis rsync avec --link-dest :
+# chaque jour est un instantané complet, mais les fichiers inchangés sont des liens durs
+# (pas de duplication => 7 jours de rétention pour un coût disque proche d'une seule copie).
+# Les ACL NTFS ne passent pas par rsync : le rôle 2 exporte chaque nuit (01:45) les ACL avec
+# "icacls <racine> /save ... /t" dans le partage Commun\_acl, qui est donc sauvegardé ici.
+set -uo pipefail
+FS="srv-fs01.{{ nexus_domain }}"
+SHARES=(Compta Direction Commun)
+ROOT=/srv/backup/fs01
+DAY="$(date +%F)"
+METRIC="{{ node_exporter_textfile_dir }}/nexus_backup_fs01.prom"
+global_rc=0
+declare -A rc_share
+
+for share in "${SHARES[@]}"; do
+  mnt="/mnt/nexus-fs01/${share}"
+  mkdir -p "$mnt" "${ROOT}/${DAY}"
+  rc=0
+  if mount -t cifs "//${FS}/${share}" "$mnt" \
+       -o ro,credentials=/etc/nexus-backup/fs01.cred,vers=3.1.1,seal,noperm,iocharset=utf8; then
+    link_opt=()
+    [[ -d "${ROOT}/latest/${share}" ]] && link_opt=(--link-dest="${ROOT}/latest/${share}")
+    rsync -a --delete --numeric-ids "${link_opt[@]}" "${mnt}/" "${ROOT}/${DAY}/${share}/" || rc=$?
+    umount "$mnt" || true
+  else
+    rc=32
+  fi
+  rc_share[$share]=$rc
+  if [[ $rc -ne 0 ]]; then
+    global_rc=1
+    logger -p user.err -t nexus-backup "ÉCHEC sauvegarde partage ${share} (code ${rc})"
+  else
+    logger -t nexus-backup "sauvegarde partage ${share} OK -> ${ROOT}/${DAY}/${share}"
+  fi
+done
+
+# "latest" ne pointe vers le jour courant que si tout s'est bien passé
+[[ $global_rc -eq 0 ]] && ln -sfn "${ROOT}/${DAY}" "${ROOT}/latest"
+
+tmp="$(mktemp "${METRIC}.XXXX")"
+{
+  echo '# HELP nexus_backup_last_status Code retour de la dernière sauvegarde (0 = OK).'
+  echo '# TYPE nexus_backup_last_status gauge'
+  for share in "${SHARES[@]}"; do
+    echo "nexus_backup_last_status{type=\"partage\",source=\"fs01-${share,,}\"} ${rc_share[$share]}"
+  done
+} > "$tmp"
+chmod 0644 "$tmp" && mv "$tmp" "$METRIC"
+exit "$global_rc"

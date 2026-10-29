@@ -1,0 +1,24 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Prometheus node_exporter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=node_exporter
+Group=node_exporter
+ExecStart=/usr/local/bin/node_exporter \
+  --web.listen-address=:9100 \
+  --collector.systemd \
+  --collector.systemd.unit-include='{{ node_exporter_systemd_units }}' \
+  --collector.textfile.directory={{ node_exporter_textfile_dir }}
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadOnlyPaths=/
+
+[Install]
+WantedBy=multi-user.target

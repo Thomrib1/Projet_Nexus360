@@ -1,0 +1,30 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Prometheus - collecte des métriques Nexus360
+Documentation=https://prometheus.io/docs/
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=prometheus
+Group=prometheus
+ExecStart=/usr/local/bin/prometheus \
+  --config.file={{ prometheus_config_dir }}/prometheus.yml \
+  --storage.tsdb.path={{ prometheus_data_dir }} \
+  --storage.tsdb.retention.time={{ prometheus_retention }} \
+  --web.listen-address=0.0.0.0:9090 \
+  --web.enable-lifecycle \
+  --web.external-url=http://lnx-mon01.{{ nexus_domain }}:9090/
+ExecReload=/bin/kill -HUP $MAINPID
+# Exigence C1 : redémarrage automatique en cas de plantage
+Restart=on-failure
+RestartSec=5s
+# Durcissement systemd
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

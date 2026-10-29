@@ -1,0 +1,52 @@
+{
+  "_commentaire": "Répartition des VM par PC (= par rôle). delai = secondes après le démarrage du script. Adapter vmx au chemin réel sur chaque PC. Le DAT fait foi.",
+  "vmrun": "C:\\Program Files (x86)\\VMware\\VMware Workstation\\vmrun.exe",
+  "sites": {
+    "1": {
+      "pc": "PC du rôle 1 — Identité",
+      "reseau": "10.36.11.0/24",
+      "vms": [
+        { "nom": "LNX-GW01",  "delai": 0,   "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\LNX-GW01.vmx" },
+        { "nom": "SRV-DC01",  "delai": 60,  "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\SRV-DC01.vmx" }
+      ]
+    },
+    "2": {
+      "pc": "PC du rôle 2 — Services Windows",
+      "reseau": "10.36.12.0/24",
+      "vms": [
+        { "nom": "LNX-GW02",  "delai": 0,   "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\LNX-GW02.vmx" },
+        { "nom": "SRV-FS01",  "delai": 240, "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\SRV-FS01.vmx" },
+        { "nom": "SRV-MGT01", "delai": 270, "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\SRV-MGT01.vmx" }
+      ]
+    },
+    "3": {
+      "pc": "PC du rôle 3 — Linux",
+      "reseau": "10.36.13.0/24",
+      "vms": [
+        { "nom": "LNX-GW03",  "delai": 0,   "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\LNX-GW03.vmx" },
+        { "nom": "LNX-OPS01", "delai": 240, "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\LNX-OPS01.vmx" },
+        { "nom": "LNX-WEB01", "delai": 270, "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\LNX-WEB01.vmx" },
+        { "nom": "LNX-APP01", "delai": 270, "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\LNX-APP01.vmx" }
+      ]
+    },
+    "4": {
+      "pc": "PC du rôle 4 — Exploitation (héberge aussi SRV-DC02, administré par le rôle 1)",
+      "reseau": "10.36.14.0/24",
+      "vms": [
+        { "nom": "LNX-GW04",  "delai": 0,   "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\LNX-GW04.vmx" },
+        { "nom": "SRV-DC02",  "delai": 60,  "vmx": "C:\\Users\\Sam\\Documents\\Virtual Machines\\SRV-DC02\\Windows Server 2022 Core.vmx" },
+        { "nom": "LNX-MON01", "delai": 90,  "vmx": "C:\\Users\\Sam\\Documents\\Virtual Machines\\LNX-MON001\\LNX-MON001.vmx" }
+      ]
+    },
+    "5": {
+      "pc": "PC du rôle 5 — Réseau et postes",
+      "reseau": "10.36.15.0/24",
+      "vms": [
+        { "nom": "LNX-GW05",   "delai": 0,   "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\LNX-GW05.vmx" },
+        { "nom": "CLI-W11-01", "delai": 300, "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\CLI-W11-01.vmx" },
+        { "nom": "CLI-LNX01",  "delai": 300, "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\CLI-LNX01.vmx" },
+        { "nom": "CLI-W11-02", "delai": 330, "vmx": "A_REMPLACER_PAR_LE_CHEMIN_REEL_SUR_LE_PC_HOTE\\CLI-W11-02.vmx" }
+      ]
+    }
+  }
+}

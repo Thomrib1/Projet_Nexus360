@@ -1,0 +1,59 @@
+---
+# ---------------------------------------------------------------------------
+# Rôle mon — propriétaire : rôle 4 (Exploitation)
+# Machine     : LNX-MON01 (10.36.14.23), VM installée par le rôle 4 sur SON PC (site 4)
+# Appliqué par: le pipeline (runner sur LNX-OPS01), jamais à la main
+# Dépend de   :
+#   - rôle 3 : rôle base appliqué AVANT sur MON01 (SSSD, SSH durci, chrony, compte ansible,
+#              node_exporter + rsyslog client via le fragment fourni par le rôle 4)
+#   - rôle 1 : enregistrements DNS lnx-mon01 et intranet dans ad.nexus360.test
+#   - rôle 5 : passerelle LNX-GW04 (NAT pour télécharger les binaires, tailnet SANS SNAT pour que
+#              MON01 joigne les 9100/9182 des autres sites et que les règles par IP source fonctionnent)
+#   - rôle 2 : windows_exporter sur les 4 serveurs Windows (script Install-WindowsExporter.ps1 du rôle 4)
+# ---------------------------------------------------------------------------
+- name: Vérifier les prérequis (secrets fournis par le coffre)
+  ansible.builtin.assert:
+    that:
+      - grafana_admin_password | length >= 12
+    fail_msg: >-
+      grafana_admin_password absent ou trop court : créez/complétez le coffre
+      inventory/group_vars/all/vault.yml (voir vault.yml.example).
+    quiet: true
+  no_log: true
+
+- name: Journaux centralisés (rsyslog serveur + rotation)
+  ansible.builtin.import_tasks: rsyslog_server.yml
+
+- name: Utilisateurs et répertoires de la supervision
+  ansible.builtin.import_tasks: users.yml
+
+- name: Prometheus
+  ansible.builtin.import_tasks: prometheus.yml
+
+- name: Alertmanager
+  ansible.builtin.import_tasks: alertmanager.yml
+
+- name: Blackbox exporter (sondes du service rendu)
+  ansible.builtin.import_tasks: blackbox.yml
+
+- name: Grafana
+  ansible.builtin.import_tasks: grafana.yml
+
+- name: Pare-feu de LNX-MON01
+  ansible.builtin.import_tasks: firewall.yml
+
+- name: Redémarrage automatique des services (exigence C1)
+  ansible.builtin.import_tasks: resilience.yml
+
+- name: Services démarrés et activés au boot (exigence C4)
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop:
+    - rsyslog
+    - prometheus
+    - alertmanager
+    - blackbox_exporter
+    - grafana-server

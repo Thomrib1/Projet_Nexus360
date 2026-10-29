@@ -1,0 +1,50 @@
+ # Propriétaires du code : GitHub demande automatiquement leur relecture sur chaque PR qui touche leurs fichiers.
+# Règle : la DERNIÈRE ligne qui correspond à un fichier l'emporte → du général au particulier.
+# Chaque chemin a DEUX propriétaires (titulaire + binôme), sinon le titulaire ne pourrait jamais fusionner
+# ses propres PR (GitHub interdit d'approuver sa propre PR).
+# Binômes : rôle 1 <-> rôle 2 (Windows) · rôle 3 <-> rôle 4 (Linux/exploitation) · rôle 5 <-> rôle 4
+#
+#   @Thomrib1 = Identité          @abdulazizo2001 = Services Windows
+#   @DropsUC = Linux             @idlane-max = Exploitation 
+#   @benormh = Réseau et postes
+
+# Par défaut : rôle 4 (cohérence du dépôt et du DAT) + rôle 3
+*                                                   @idlane-max @DropsUC
+
+# --- Rôle 1 : Identité (OU, utilisateurs CSV, groupes AGDLP, GPO, tiering, LAPS)
+/windows/identite/                                  @Thomrib1 @abdulazizo2001
+/windows/config/utilisateurs*.csv                   @Thomrib1 @abdulazizo2001
+/docs/matrice-des-droits.md                         @Thomrib1 @abdulazizo2001
+
+# --- Rôle 2 : Services Windows (partages, FSRM, WSUS, WEF, boîte à outils D2)
+/windows/                                           @abdulazizo2001 @Thomrib1
+/windows/identite/                                  @Thomrib1 @abdulazizo2001
+
+# --- Rôle 3 : Linux (rôles base, web, ops)
+/ansible/roles/base/                                @DropsUC @idlane-max
+/ansible/roles/web/                                 @DropsUC @idlane-max
+/ansible/roles/ops/                                 @DropsUC @idlane-max
+
+# --- Rôle 4 : Exploitation (pipeline, supervision, journaux, sauvegardes, scripts, inventaire)
+/.github/                                           @idlane-max @DropsUC
+/ansible/roles/mon/                                 @idlane-max @DropsUC
+/ansible/inventory/                                 @idlane-max @DropsUC
+/ansible/site.yml                                   @idlane-max @DropsUC
+/ansible/roles/base/tasks/supervision_journaux.yml  @idlane-max @DropsUC
+/ansible/roles/ops/tasks/sauvegardes.yml            @idlane-max @DropsUC
+/scripts/                                           @idlane-max @DropsUC
+/tests/                                             @idlane-max @DropsUC
+/hyperviseur/                                       @idlane-max @benormh
+/windows/scripts/Install-WindowsExporter.ps1        @idlane-max @abdulazizo2001
+/windows/scripts/Invoke-Deploy.ps1                  @idlane-max @abdulazizo2001
+/windows/config/supervision.json                    @idlane-max @abdulazizo2001
+/windows/config/deploiement.json                    @idlane-max @abdulazizo2001
+/docs/                                              @idlane-max @DropsUC
+
+# --- Rôle 5 : Réseau et postes (passerelles, tailnet, relais DHCP, postes)
+/reseau/                                            @benormh @idlane-max
+/docs/reseau/                                       @benormh @idlane-max
+
+# --- Fiches d'incident et journal d'exploitation : tout le monde écrit, n'importe quel autre membre relit
+/docs/incidents/                                    @Thomrib1 @abdulazizo2001 @DropsUC @idlane-max @benormh
+/docs/exploitation/journal-exploitation.md          @Thomrib1 @abdulazizo2001 @DropsUC @idlane-max @benormh

@@ -1,0 +1,9 @@
+---
+profile: production
+exclude_paths:
+  - .github/
+  - ansible/collections/
+  - docs/
+  - tests/
+skip_list:
+  - var-naming[no-role-prefix]   # variables partagées entre rôles (mon_server_ip, etc.)

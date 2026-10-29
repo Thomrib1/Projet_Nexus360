@@ -1,0 +1,26 @@
+---
+- name: Installer blackbox_exporter
+  ansible.builtin.include_tasks: install_binary.yml
+  vars:
+    bin_project: blackbox_exporter
+    bin_version: "{{ blackbox_exporter_version }}"
+    bin_files: [blackbox_exporter]
+    bin_service: blackbox_exporter
+
+- name: Modules de sonde (HTTP, TCP, DNS AD, ICMP)
+  ansible.builtin.template:
+    src: blackbox.yml.j2
+    dest: "{{ blackbox_config_dir }}/blackbox.yml"
+    owner: root
+    group: blackbox
+    mode: "0640"
+  notify: Redémarrer blackbox_exporter
+
+- name: Unité systemd de blackbox_exporter
+  ansible.builtin.template:
+    src: blackbox_exporter.service.j2
+    dest: /etc/systemd/system/blackbox_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Redémarrer blackbox_exporter

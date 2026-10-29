@@ -1,0 +1,46 @@
+# {{ ansible_managed }}
+global:
+  resolve_timeout: 5m
+{% if alertmanager_smtp.enabled %}
+  smtp_smarthost: "{{ alertmanager_smtp.smarthost }}"
+  smtp_from: "{{ alertmanager_smtp.from }}"
+  smtp_auth_username: "{{ alertmanager_smtp.username }}"
+  smtp_auth_password: "{{ alertmanager_smtp.password }}"
+  smtp_require_tls: true
+{% endif %}
+
+route:
+  receiver: equipe-exploitation
+  group_by: [alertname, instance]
+  group_wait: 30s        # attend 30 s pour regrouper les alertes simultanées
+  group_interval: 5m
+  repeat_interval: 4h    # rappel tant que ce n'est pas résolu
+  routes:
+    # Les alertes critiques partent tout de suite et sont rappelées plus souvent
+    - matchers: ['severity="critical"']
+      receiver: equipe-exploitation
+      group_wait: 10s
+      repeat_interval: 1h
+
+receivers:
+  - name: equipe-exploitation
+{% if alertmanager_discord_webhook | length > 0 %}
+    discord_configs:
+      - webhook_url_file: {{ alertmanager_config_dir }}/discord_webhook
+        send_resolved: true
+{% raw %}
+        title: '{{ if eq .Status "firing" }}[PANNE]{{ else }}[RÉSOLU]{{ end }} {{ .CommonLabels.alertname }} sur {{ .CommonLabels.instance }}'
+        message: '{{ range .Alerts }}{{ .Annotations.summary }} — {{ .Annotations.description }}{{ "\n" }}{{ end }}'
+{% endraw %}
+{% endif %}
+{% if alertmanager_smtp.enabled %}
+    email_configs:
+      - to: "{{ alertmanager_smtp.to }}"
+        send_resolved: true
+{% endif %}
+
+inhibit_rules:
+  # Si une machine est injoignable, on ne noie pas l'équipe sous ses alertes secondaires
+  - source_matchers: ['alertname="InstanceDown"']
+    target_matchers: ['severity=~"warning|info"']
+    equal: [instance]

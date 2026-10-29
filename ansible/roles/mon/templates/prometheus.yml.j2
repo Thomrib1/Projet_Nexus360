@@ -1,0 +1,85 @@
+# {{ ansible_managed }}
+# Cibles générées depuis l'inventaire Ansible : ajouter une machine à l'inventaire
+# suffit pour qu'elle soit supervisée au prochain déploiement.
+global:
+  scrape_interval: {{ prometheus_scrape_interval }}
+  evaluation_interval: {{ prometheus_evaluation_interval }}
+  external_labels:
+    site: nexus360-paris
+
+rule_files:
+  - {{ prometheus_config_dir }}/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["127.0.0.1:9093"]
+
+scrape_configs:
+  # --- Prometheus se surveille lui-même
+  - job_name: prometheus
+    static_configs:
+      - targets: ["127.0.0.1:9090"]
+        labels: { instance: lnx-mon01 }
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["127.0.0.1:9093"]
+        labels: { instance: lnx-mon01 }
+
+  # --- Serveurs et passerelles Linux (node_exporter, installé par le rôle base)
+  - job_name: linux
+    static_configs:
+{% for h in groups['linux'] | default([]) | sort %}
+      - targets: ["{{ hostvars[h].ansible_host | default(h) }}:9100"]
+        labels:
+          instance: {{ h }}
+          os: linux
+          role: {{ (hostvars[h].group_names | difference(['linux', 'rocky']) | first) | default('autre') }}
+{% endfor %}
+
+  # --- Serveurs Windows (windows_exporter, installé par le rôle 2 depuis SRV-MGT01)
+  - job_name: windows
+    static_configs:
+{% for w in windows_servers | default([]) %}
+      - targets: ["{{ w.ip }}:9182"]
+        labels:
+          instance: {{ w.name }}
+          os: windows
+          role: {{ w.role }}
+          site: {{ w.site }}
+{% endfor %}
+
+  # --- Sondes "boîte noire" : le service tel que l'utilisateur le voit (bonus)
+  - job_name: blackbox_http
+    metrics_path: /probe
+    params: { module: [http_2xx] }
+    static_configs:
+      - targets: {{ blackbox_http_targets | to_json }}
+    relabel_configs:
+      - { source_labels: [__address__], target_label: __param_target }
+      - { source_labels: [__param_target], target_label: instance }
+      - { target_label: __address__, replacement: "127.0.0.1:9115" }
+
+  - job_name: blackbox_tcp
+    metrics_path: /probe
+    params: { module: [tcp_connect] }
+    static_configs:
+{% for t in blackbox_tcp_targets %}
+      - targets: ["{{ t.target }}"]
+        labels: { service: {{ t.name }} }
+{% endfor %}
+    relabel_configs:
+      - { source_labels: [__address__], target_label: __param_target }
+      - { source_labels: [service], target_label: instance }
+      - { target_label: __address__, replacement: "127.0.0.1:9115" }
+
+  - job_name: blackbox_dns
+    metrics_path: /probe
+    params: { module: [dns_ad] }
+    static_configs:
+      - targets: {{ blackbox_dns_targets | to_json }}
+    relabel_configs:
+      - { source_labels: [__address__], target_label: __param_target }
+      - { source_labels: [__param_target], target_label: instance }
+      - { target_label: __address__, replacement: "127.0.0.1:9115" }

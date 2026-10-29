@@ -1,0 +1,28 @@
+---
+# Exigence C1 : surcharges systemd Restart= pour les services critiques installés par paquet
+# (les unités écrites par ce rôle contiennent déjà Restart=on-failure).
+- name: Répertoires de surcharge systemd
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ item }}.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop: [rsyslog, grafana-server]
+
+- name: Surcharge Restart=on-failure
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item }}.service.d/10-nexus-restart.conf"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Géré par Ansible (rôle mon) — exigence C1
+      [Unit]
+      StartLimitIntervalSec=300
+      StartLimitBurst=5
+      [Service]
+      Restart=on-failure
+      RestartSec=5s
+  loop: [rsyslog, grafana-server]
+  notify: Recharger systemd

@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+# Copie de TOUS les journaux vers LNX-MON01 en TCP (exigence D1).
+# File d'attente sur disque : si MON01 est éteint, les messages sont gardés (1 Go max)
+# puis renvoyés à son retour — aucun journal perdu pendant un redémarrage (exigence C4).
+*.* action(
+      type="omfwd"
+      target="{{ mon_server_ip }}"
+      port="{{ rsyslog_central_port }}"
+      protocol="tcp"
+      action.resumeRetryCount="-1"
+      queue.type="LinkedList"
+      queue.filename="nexus_fwd"
+      queue.maxDiskSpace="1g"
+      queue.saveOnShutdown="on"
+    )

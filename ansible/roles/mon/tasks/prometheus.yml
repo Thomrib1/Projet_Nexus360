@@ -1,0 +1,39 @@
+---
+- name: Installer Prometheus et promtool
+  ansible.builtin.include_tasks: install_binary.yml
+  vars:
+    bin_project: prometheus
+    bin_version: "{{ prometheus_version }}"
+    bin_files: [prometheus, promtool]
+    bin_service: prometheus
+
+- name: Configuration principale de Prometheus (cibles générées depuis l'inventaire)
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ prometheus_config_dir }}/prometheus.yml"
+    owner: root
+    group: prometheus
+    mode: "0640"
+    validate: /usr/local/bin/promtool check config --syntax-only %s
+  notify: Recharger prometheus
+
+- name: Règles d'alerte (fichiers non templatisés, testés par promtool en CI)
+  ansible.builtin.copy:
+    src: "rules/{{ item }}"
+    dest: "{{ prometheus_config_dir }}/rules/{{ item }}"
+    owner: root
+    group: prometheus
+    mode: "0640"
+    validate: /usr/local/bin/promtool check rules %s
+  loop:
+    - nexus360-alertes.yml
+  notify: Recharger prometheus
+
+- name: Unité systemd de Prometheus
+  ansible.builtin.template:
+    src: prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Redémarrer prometheus
