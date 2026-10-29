@@ -1,3 +1,14 @@
-reseau/gw.env
-*.key
+# Jamais de secret en clair dans le dépôt
 *.pem
+*.key
+id_*
+!id_*.pub
+vault-pass*
+!scripts/vault-pass.sh
+ansible/inventory/group_vars/all/vault.yml.dec
+*.cred
+.env
+# Artefacts locaux
+ansible/collections/
+*.retry
+__pycache__/
