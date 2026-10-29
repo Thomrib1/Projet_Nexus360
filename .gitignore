@@ -1,4 +1,3 @@
-# Jamais de secret en clair dans le dépôt
 *.pem
 *.key
 id_*
