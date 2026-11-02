@@ -1,0 +1,7 @@
+server {
+    listen 80 default_server;
+    server_name intranet.{{ domain }};
+    root /usr/share/nginx/html;
+    server_tokens off;
+    location /nginx_status { stub_status; allow {{ mon_ip }}; deny all; }
+}

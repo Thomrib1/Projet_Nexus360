@@ -1,0 +1,6 @@
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+AllowGroups {{ ssh_allowed_groups | join(' ') }} ansible
+MaxAuthTries 3

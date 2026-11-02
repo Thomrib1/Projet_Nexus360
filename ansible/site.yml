@@ -1,0 +1,25 @@
+---
+- name: Socle commun Linux
+  hosts: linux
+  become: true
+  roles: [base]
+
+- name: Serveur web intranet
+  hosts: web
+  become: true
+  roles: [web]
+
+- name: Bastion, sauvegardes, stockage
+  hosts: ops
+  become: true
+  roles: [ops]
+
+- name: Supervision et journaux
+  hosts: mon
+  become: true
+  roles: [mon]
+
+- name: Passerelles (bonus)
+  hosts: gw
+  become: true
+  roles: [gw]

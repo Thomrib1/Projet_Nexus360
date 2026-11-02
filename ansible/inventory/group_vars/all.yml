@@ -1,0 +1,18 @@
+---
+domain: ad.nexus360.test
+realm: AD.NEXUS360.TEST
+dc_dns: [10.36.11.10, 10.36.12.11]
+dc_ntp: [10.36.11.10, 10.36.12.11]
+bastion_ip: 10.36.13.22
+mon_ip: 10.36.13.23
+web_ip: 10.36.13.21
+# Groupes AD autorisés (SSH + sudo) -- voir docs/matrice-droits.md
+ssh_allowed_groups: [GG_Admins_T1, GG_Exploitation]
+sudo_full_groups: [GG_Admins_T1]
+sudo_restricted_group: GG_Exploitation
+sudo_restricted_cmds:
+  - /usr/bin/systemctl status *
+  - /usr/bin/systemctl restart nginx
+  - /usr/bin/systemctl restart prometheus
+  - /usr/bin/systemctl restart grafana-server
+  - /usr/bin/journalctl *
