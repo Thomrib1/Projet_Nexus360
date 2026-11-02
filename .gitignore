@@ -1,3 +1,8 @@
 reseau/gw.env
 *.key
 *.pem
+*.retry
+*.vault
+*password*.csv
+id_*
+tskey*
