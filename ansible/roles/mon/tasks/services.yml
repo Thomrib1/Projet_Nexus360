@@ -1,0 +1,8 @@
+---
+- name: "Drop-in Restart pour {{ item }}"
+  ansible.builtin.file: {path: "/etc/systemd/system/{{ item }}.service.d", state: directory, mode: "0755"}
+- ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item }}.service.d/restart.conf"
+    mode: "0644"
+    content: "[Service]\nRestart=always\nRestartSec=5\n"
+- ansible.builtin.systemd: {name: "{{ item }}", enabled: true, state: started, daemon_reload: true}

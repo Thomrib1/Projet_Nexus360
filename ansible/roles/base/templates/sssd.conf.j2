@@ -1,0 +1,12 @@
+[sssd]
+domains = {{ domain }}
+services = nss, pam, ssh
+
+[domain/{{ domain }}]
+id_provider = ad
+access_provider = simple
+simple_allow_groups = {{ ssh_allowed_groups | join(', ') }}
+use_fully_qualified_names = False
+fallback_homedir = /home/%u
+default_shell = /bin/bash
+ad_gpo_access_control = disabled

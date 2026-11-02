@@ -1,0 +1,57 @@
+---
+- name: Paquets stockage et sauvegarde
+  ansible.builtin.dnf:
+    name: [mdadm, lvm2, xfsprogs, rsync, quota]
+    state: present
+
+- name: RAID 1 logiciel
+  ansible.builtin.command:
+    cmd: "mdadm --create /dev/md0 --level=1 --raid-devices=2 {{ ops_raid_devices | join(' ') }} --run"
+    creates: /dev/md0
+
+- name: Groupe de volumes
+  community.general.lvg: {vg: vg_ops, pvs: /dev/md0}
+
+- name: Volumes logiques
+  community.general.lvol: {vg: vg_ops, lv: "{{ item.lv }}", size: "{{ item.size }}"}
+  loop:
+    - {lv: backup, size: 60%VG}
+    - {lv: partage, size: 30%VG}
+
+- name: Systèmes de fichiers XFS
+  community.general.filesystem: {fstype: xfs, dev: "/dev/vg_ops/{{ item }}"}
+  loop: [backup, partage]
+
+- name: Montage avec quotas projet (A4)
+  ansible.posix.mount:
+    path: "/srv/{{ item }}"
+    src: "/dev/vg_ops/{{ item }}"
+    fstype: xfs
+    opts: defaults,prjquota
+    state: mounted
+  loop: [backup, partage]
+
+- name: Compte de sauvegarde
+  ansible.builtin.user: {name: backup, shell: /bin/bash, home: /srv/backup/home}
+
+- name: Script de sauvegarde (/etc Linux)
+  ansible.builtin.template:
+    src: backup-etc.sh.j2
+    dest: /usr/local/sbin/backup-etc.sh
+    mode: "0750"
+
+- name: Timer quotidien
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.n }}"
+    mode: "0644"
+    content: "{{ item.c }}"
+  loop:
+    - n: backup-etc.service
+      c: "[Unit]\nDescription=Sauvegarde /etc\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/backup-etc.sh\n"
+    - n: backup-etc.timer
+      c: "[Unit]\nDescription=Sauvegarde quotidienne\n[Timer]\nOnCalendar=*-*-* 02:00:00\nPersistent=true\n[Install]\nWantedBy=timers.target\n"
+- name: Timer actif
+  ansible.builtin.systemd: {name: backup-etc.timer, enabled: true, state: started, daemon_reload: true}
+
+- name: Pare-feu ssh (bastion)
+  ansible.posix.firewalld: {service: ssh, permanent: true, immediate: true, state: enabled}

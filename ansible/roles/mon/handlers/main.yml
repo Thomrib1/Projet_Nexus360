@@ -1,0 +1,3 @@
+---
+- {name: restart rsyslog, ansible.builtin.systemd: {name: rsyslog, state: restarted}}
+- {name: restart prometheus, ansible.builtin.systemd: {name: prometheus, state: restarted}}

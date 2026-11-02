@@ -1,0 +1,9 @@
+---
+node_targets:
+  - {name: srv-dc01, addr: "10.36.11.10:9182", os: windows}
+  - {name: srv-dc02, addr: "10.36.12.11:9182", os: windows}
+  - {name: srv-fs01, addr: "10.36.11.12:9182", os: windows}
+  - {name: srv-mgt01, addr: "10.36.12.13:9182", os: windows}
+  - {name: lnx-web01, addr: "10.36.13.21:9100", os: linux}
+  - {name: lnx-ops01, addr: "10.36.13.22:9100", os: linux}
+  - {name: lnx-mon01, addr: "127.0.0.1:9100", os: linux}

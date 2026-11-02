@@ -1,0 +1,6 @@
+---
+ops_raid_devices: [/dev/sdb, /dev/sdc]
+backup_retention_days: 7
+backup_sources:
+  - {host: lnx-web01, ip: 10.36.13.21}
+  - {host: lnx-mon01, ip: 10.36.13.23}

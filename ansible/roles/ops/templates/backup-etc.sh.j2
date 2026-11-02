@@ -1,0 +1,11 @@
+#!/bin/bash
+# Géré par Ansible. Sauvegarde /etc des Linux, rétention {{ backup_retention_days }} jours.
+set -euo pipefail
+DEST=/srv/backup/etc
+DATE=$(date +%F)
+mkdir -p "$DEST"
+tar czf "$DEST/lnx-ops01-$DATE.tgz" /etc
+{% for s in backup_sources %}
+ssh -o BatchMode=yes backup@{{ s.ip }} "sudo tar czf - /etc" > "$DEST/{{ s.host }}-$DATE.tgz"
+{% endfor %}
+find "$DEST" -name '*.tgz' -mtime +{{ backup_retention_days - 1 }} -delete

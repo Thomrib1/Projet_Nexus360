@@ -1,0 +1,6 @@
+# Géré par Ansible : source = les DC
+{% for s in dc_ntp %}
+server {{ s }} iburst
+{% endfor %}
+driftfile /var/lib/chrony/drift
+makestep 1.0 3

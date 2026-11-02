@@ -1,0 +1,5 @@
+# Géré par Ansible
+{% for g in sudo_full_groups %}
+%{{ g }} ALL=(ALL) ALL
+{% endfor %}
+%{{ sudo_restricted_group }} ALL=(root) NOPASSWD: {{ sudo_restricted_cmds | join(', ') }}
