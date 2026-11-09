@@ -1,7 +1,7 @@
 ---
 - name: Paquets stockage et sauvegarde
   ansible.builtin.dnf:
-    name: [mdadm, lvm2, xfsprogs, rsync, quota]
+    name: [mdadm, lvm2, xfsprogs, rsync, quota, tar]
     state: present
 
 - name: RAID 1 logiciel
@@ -10,26 +10,24 @@
     creates: /dev/md0
 
 - name: Groupe de volumes
-  community.general.lvg: {vg: vg_ops, pvs: /dev/md0}
+  community.general.lvg: {vg: "{{ ops_vg }}", pvs: /dev/md0}
 
 - name: Volumes logiques
-  community.general.lvol: {vg: vg_ops, lv: "{{ item.lv }}", size: "{{ item.size }}"}
-  loop:
-    - {lv: backup, size: 60%VG}
-    - {lv: partage, size: 30%VG}
+  community.general.lvol: {vg: "{{ ops_vg }}", lv: "{{ item.lv }}", size: "{{ item.size }}"}
+  loop: "{{ ops_volumes }}"
 
 - name: Systèmes de fichiers XFS
-  community.general.filesystem: {fstype: xfs, dev: "/dev/vg_ops/{{ item }}"}
-  loop: [backup, partage]
+  community.general.filesystem: {fstype: xfs, dev: "/dev/{{ ops_vg }}/{{ item.lv }}"}
+  loop: "{{ ops_volumes }}"
 
-- name: Montage avec quotas projet (A4)
+- name: Montage avec quotas XFS (A4)
   ansible.posix.mount:
-    path: "/srv/{{ item }}"
-    src: "/dev/vg_ops/{{ item }}"
+    path: "/srv/{{ item.name }}"
+    src: "/dev/mapper/{{ ops_vg }}-{{ item.lv }}"
     fstype: xfs
-    opts: defaults,prjquota
+    opts: "{{ ops_mount_opts }}"
     state: mounted
-  loop: [backup, partage]
+  loop: "{{ ops_volumes }}"
 
 - name: Compte de sauvegarde
   ansible.builtin.user: {name: backup, shell: /bin/bash, home: /srv/backup/home}
@@ -50,6 +48,7 @@
       c: "[Unit]\nDescription=Sauvegarde /etc\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/backup-etc.sh\n"
     - n: backup-etc.timer
       c: "[Unit]\nDescription=Sauvegarde quotidienne\n[Timer]\nOnCalendar=*-*-* 02:00:00\nPersistent=true\n[Install]\nWantedBy=timers.target\n"
+
 - name: Timer actif
   ansible.builtin.systemd: {name: backup-etc.timer, enabled: true, state: started, daemon_reload: true}
 
