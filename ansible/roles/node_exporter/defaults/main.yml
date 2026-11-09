@@ -1,0 +1,5 @@
+---
+node_exporter_version: "1.9.1"
+node_exporter_port: 9100
+# Seule la machine de supervision (LNX-MON01, variable mon_ip) peut lire les métriques.
+node_exporter_allowed_source: "{{ mon_ip }}"
