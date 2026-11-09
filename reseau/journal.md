@@ -62,3 +62,11 @@
 | 2026-11-09 12:10 | Thomas / DHCP | Réponse reçue : options d'étendue, relais vers les deux DC (équilibrage 50/50), réservations acceptées, OU des postes (Windows, Pilote, Linux) | OK | preuves/E1-reponse-thomas-dhcp-ou.png |
 | 2026-11-09 12:50 | Réseau | Rédaction du DAT réseau (docs/dat-reseau.md) et des runbooks (docs/runbooks/runbooks.md), tableau des postes corrigé | OK | preuves/E1-pr-dat-runbooks.png |
 | 2026-11-09 12:50 | Réseau | Mise à jour du README du dossier reseau (tests, postes, limites) | OK | preuves/E1-pr-dat-runbooks.png |
+
+Répétition de reconstruction GW05 : build en 20 s, selftest 14 PASS, bail 10.36.15.110 via le relais. Preuves : A8-repet-build.png, A8-repet-snapshot.png.
+
+Politique tailnet tag:gw enregistrée dans la console, tests au vert. Preuve : B5-tailnet-tests-tag-gw.png.
+
+GW-TEMPLATE exporté (OVF, MF, VMDK), transmis en privé à Thomas et Dilan, SHA256 communiqué à part.
+
+GW01 hébergée par Thomas et GW02 par Dilan (même VMnet que leur DC), clés tag:gw à usage unique, 1 jour.
