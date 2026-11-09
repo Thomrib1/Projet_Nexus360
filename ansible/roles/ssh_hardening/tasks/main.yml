@@ -1,0 +1,37 @@
+---
+# Garde-fou anti-blocage : chaque compte autorisé doit déjà avoir une clé installée.
+- name: Clés SSH présentes pour les comptes autorisés
+  ansible.builtin.stat:
+    path: "/home/{{ item }}/.ssh/authorized_keys"
+  register: ssh_keys
+  loop: "{{ ssh_hardening_users }}"
+
+- name: Refuser de continuer si un compte n'a pas de clé (sinon blocage)
+  ansible.builtin.assert:
+    that: item.stat.exists
+    fail_msg: "Pas de clé SSH pour {{ item.item }} : on ne coupe pas les mots de passe."
+  loop: "{{ ssh_keys.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Groupe SSH local
+  ansible.builtin.group:
+    name: "{{ ssh_hardening_group }}"
+
+- name: Comptes autorisés dans le groupe SSH
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups: "{{ ssh_hardening_group }}"
+    append: true
+  loop: "{{ ssh_hardening_users }}"
+  ignore_errors: "{{ ansible_check_mode }}"  # en simulation le groupe n'existe pas encore
+
+- name: Configuration SSH durcie
+  ansible.builtin.template:
+    src: 10-nexus360.conf.j2
+    dest: /etc/ssh/sshd_config.d/10-nexus360.conf
+    owner: root
+    group: root
+    mode: "0644"
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Recharger sshd
