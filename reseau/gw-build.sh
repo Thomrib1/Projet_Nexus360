@@ -10,6 +10,15 @@ ENVFILE="${2:-/root/gw.env}"
 [[ -r "$ENVFILE" ]] || { echo "Fichier $ENVFILE introuvable" >&2; exit 1; }
 source "$ENVFILE"
 
+# BACKBONE=vmnet  : backbone VMware (VMnet10), routes statiques entre passerelles (defaut)
+# BACKBONE=tailnet: pas de carte backbone, les sites sont relies par Tailscale (tailscale0)
+BACKBONE="${BACKBONE:-vmnet}"
+[[ "$BACKBONE" == "vmnet" || "$BACKBONE" == "tailnet" ]] || { echo "BACKBONE doit valoir vmnet ou tailnet" >&2; exit 1; }
+if [[ "$BACKBONE" == "tailnet" ]]; then
+  BB_IF="tailscale0"
+  BB_MTU="${BB_MTU:-1280}"
+fi
+
 LAN_NET="10.36.1${N}.0/24"
 LAN_IP="10.36.1${N}.1"
 BB_IP="10.36.0.${N}"
@@ -39,8 +48,15 @@ for m in 1 2 3 4 5; do
 done
 ensure_con gw-wan type ethernet ifname "$WAN_IF" ipv4.method auto ipv6.method disabled
 ensure_con gw-lan type ethernet ifname "$LAN_IF" ipv4.method manual ipv4.addresses "${LAN_IP}/24" ipv6.method disabled
-ensure_con gw-bb  type ethernet ifname "$BB_IF"  ipv4.method manual ipv4.addresses "${BB_IP}/24" ipv4.routes "$ROUTES" 802-3-ethernet.mtu "$BB_MTU" ipv6.method disabled
-for c in gw-wan gw-lan gw-bb; do nmcli con up "$c" >/dev/null; done
+if [[ "$BACKBONE" == "vmnet" ]]; then
+  ensure_con gw-bb  type ethernet ifname "$BB_IF"  ipv4.method manual ipv4.addresses "${BB_IP}/24" ipv4.routes "$ROUTES" 802-3-ethernet.mtu "$BB_MTU" ipv6.method disabled
+  CONS="gw-wan gw-lan gw-bb"
+else
+  # Mode tailnet : les routes des autres sites arrivent par Tailscale (--accept-routes)
+  nmcli -t -f NAME con show | grep -qx gw-bb && nmcli con delete gw-bb >/dev/null || true
+  CONS="gw-wan gw-lan"
+fi
+for c in $CONS; do nmcli con up "$c" >/dev/null; done
 
 log "3/9 Routage (sysctl)"
 cat >/etc/sysctl.d/90-gw.conf <<EOF
@@ -164,7 +180,20 @@ log "8/9 Tailscale (optionnel, TAILSCALE=1)"
 if [[ "$TAILSCALE" == "1" ]]; then
   command -v tailscale >/dev/null || curl -fsSL https://tailscale.com/install.sh | sh
   systemctl enable --now tailscaled
-  echo "Connexion manuelle : sudo tailscale up --accept-dns=false"
+  if [[ "$BACKBONE" == "tailnet" ]]; then
+    # Annonce le LAN du site, accepte les routes des autres sites, sans NAT, sans DNS Tailscale
+    TS_ARGS=(--hostname="lnx-gw0${N}" --advertise-tags=tag:gw --advertise-routes="${LAN_NET}" \
+             --accept-routes --snat-subnet-routes=false --accept-dns=false)
+    TS_KEYFILE="${TS_AUTHKEY_FILE:-/root/ts-authkey}"   # cle a usage unique, hors Git, droits 0600
+    if [[ -s "$TS_KEYFILE" ]]; then
+      tailscale up "${TS_ARGS[@]}" --auth-key="$(cat "$TS_KEYFILE")"
+      shred -u "$TS_KEYFILE" 2>/dev/null || rm -f "$TS_KEYFILE"
+    else
+      echo "Connexion manuelle : sudo tailscale up ${TS_ARGS[*]}"
+    fi
+  else
+    echo "Connexion manuelle : sudo tailscale up --accept-dns=false"
+  fi
 else
   echo "desactive"
 fi
