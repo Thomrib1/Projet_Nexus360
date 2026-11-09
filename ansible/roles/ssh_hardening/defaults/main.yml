@@ -1,0 +1,7 @@
+---
+# Groupe local autorisé à se connecter en SSH (B5). Les groupes AD (DL_LNX_SSH_Acces) s'ajoutent
+# dans ssh_hardening_extra_groups une fois la machine jointe au domaine.
+ssh_hardening_group: sshusers
+ssh_hardening_extra_groups: []
+# Comptes locaux autorisés : l'admin, le compte Ansible et, sur les machines sauvegardées, le compte de sauvegarde.
+ssh_hardening_users: "{{ ['ugo', 'ansible'] + ([] if 'ops' in group_names else [backup_remote_user | default('svc_backup')]) }}"
