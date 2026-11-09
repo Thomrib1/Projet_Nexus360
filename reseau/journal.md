@@ -58,3 +58,10 @@
  | 2026-10-29 23:12 | LNX-GW04 | Tailscale installé et connecté au tailnet (adresse 100.86.136.5) ; selftest toujours à 14 PASS ; machines partagées visibles mais hors ligne | OK | preuves/A8-gw04-tailscale-build.png, preuves/A8-gw04-tailscale-status.png, preuves/A8-tailscale-console-gw04.png |
 
  | 2026-10-29 23:51 | Tailnet | Politique d'accès écrite (tailnet-policy.hujson) avec autogroup:shared, validée dans l'éditeur d'ACL ; test négatif refusé par le validateur (8.8.8.8:53, got: Drop), test deny accepté | OK | preuves/B5-tailnet-tests-verts.png, preuves/B5-tailnet-test-negatif.png, preuves/B5-tailnet-tests-deny.png |
+
+ | 2026-11-09 12:00 | CLI-LNX01 | Ubuntu 26.04.1 LTS Desktop sur VMnet14, MAC 00:50:56:2E:14:02, réservation 10.36.14.102 obtenue via le relais DHCP, connectivité vers le site 1 et Internet | OK | preuves/A2-cli-lnx01-installation.png, preuves/A2-cli-lnx01-bail-reservation.png, preuves/A2-cli-lnx01-connectivite.png, preuves/A2-cli-lnx01-bail-kea.png |
+| 2026-11-09 12:00 | CLI-LNX01 | DNS du domaine uniquement (FallbackDNS vidé) : apt update ne résout plus les noms Internet sans les DC | OK | preuves/A2-cli-lnx01-dns-seul.png |
+| 2026-11-09 12:03 | CLI-LNX01 | Nom cli-lnx01, chrony configuré vers 10.36.11.10 et 10.36.12.11 (sources inaccessibles chez moi, synchronisation non vérifiable sans les DC) | OK | preuves/A2-cli-lnx01-chrony.png |
+| 2026-11-09 12:04 | CLI-LNX01 | dhcp-identifier mac ajouté dans netplan (profil NetworkManager netplan-ens33) : réservation par MAC compatible avec les DC. Activation échouée une première fois car TMP-DHCP était éteinte, résolue en allumant TMP-DHCP | OK | preuves/A2-cli-lnx01-netplan-identifier.png, preuves/A2-cli-lnx01-dhcp-identifier.png |
+| 2026-11-09 12:07 | CLI-LNX01 | Snapshot cli-lnx01-pret | OK | preuves/A2-cli-lnx01-snapshot.png |
+| 2026-11-09 12:10 | Thomas / DHCP | Réponse reçue : options d'étendue, relais vers les deux DC (équilibrage 50/50), réservations acceptées, OU des postes (Windows, Pilote, Linux) | OK | preuves/E1-reponse-thomas-dhcp-ou.png |
