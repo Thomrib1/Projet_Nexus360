@@ -6,12 +6,13 @@ Passerelles LNX-GW01 à LNX-GW05, postes CLI-W11-01, CLI-W11-02 et CLI-LNX01, po
 
 - `journal.md` : journal d'exploitation
 - `gw-build.sh` : construction d'une passerelle (`sudo /root/gw-build.sh <n>`)
-- `gw.env.example` : variables d'une passerelle (copie utilisée : `/root/gw.env`, jamais versionnée)
+- `gw.env.example` : variables d'une passerelle en mode `vmnet` (copie utilisée : `/root/gw.env`, jamais versionnée)
+- `gw.env.tailnet.example` : variables d'une passerelle en mode `tailnet` (2 cartes : WAN + LAN)
 - `tests/gw-selftest.sh` : 14 contrôles d'une passerelle
 - `dhcp/kea-substitut.json` : DHCP de substitution (lab uniquement)
 - `tailnet-policy.hujson` : politique d'accès du tailnet, avec tests
 - `docs/dat-reseau.md` : dossier d'architecture technique
-- `docs/runbooks/runbooks.md` : procédures d'exploitation
+- `docs/runbooks.md` : procédures d'exploitation
 - `preuves/` : captures et sorties de tests, nommées par exigence
 
 ## Environnement du lab
@@ -36,13 +37,23 @@ Prérequis : modèle `GW-TEMPLATE` (Rocky 10.1 minimal, clé SSH installée), `g
 4. Depuis la console VMware : `sudo /root/gw-build.sh <n>`.
 5. Contrôler : `sudo /root/gw-selftest.sh <n>` doit afficher 14 PASS et 0 FAIL.
 
+## Mode tailnet (tailnet commun)
+
+1. Dans `/root/gw.env` : `BACKBONE=tailnet`, `TAILSCALE=1` (modèle : `gw.env.tailnet.example`).
+2. Déposer la clé d'authentification (usage unique, tag `tag:gw`, reçue en privé) dans `/root/ts-authkey` en 0600.
+3. `sudo ./gw-build.sh <n> /root/gw.env` : le script configure nftables, connecte Tailscale puis supprime la clé.
+4. `sudo ./tests/gw-selftest.sh <n>` ; vérifier dans la console : machine `lnx-gw0<n>` taguée `tag:gw`, route du site approuvée.
+5. Test inter-sites : depuis le DC02, `Test-NetConnection 10.36.11.10 -Port 53`.
+
+La politique `tailnet-policy.hujson` se colle une seule fois dans la console du tailnet commun.
+
 ## Ordre de démarrage
 
 1. Passerelles LNX-GW0n (attendre environ 60 secondes)
 2. Serveurs (DHCP de substitution TMP-DHCP ; DC, serveurs de fichiers et Linux chez les autres rôles)
 3. Postes de travail
 
-La TMP-DHCP doit être allumée avant les postes. Détail et dépannage : `docs/runbooks/runbooks.md`.
+La TMP-DHCP doit être allumée avant les postes. Détail et dépannage : `docs/runbooks.md`.
 
 ## DHCP de substitution
 
@@ -60,7 +71,7 @@ La jonction au domaine utilise `svc-adjoin` ; aucun mot de passe n'est versionn�
 
 ## Limites connues
 
-- Backbone VMware à la place d'un tailnet commun.
+- Lab local en backbone VMware ; mode tailnet disponible pour la liaison inter-PC (GW01 et GW02 hébergées par Thomas et Dilan).
 - Une passerelle par site ; SSH WAN ouvert pendant le projet (`ALLOW_WAN_SSH=0` avant le gel).
-- Jonction au domaine, partages, bascule DHCP et règle 2 de l'ACL en attente des DC et des pairs Tailscale.
+- Jonction au domaine, partages, bascule DHCP et règle 5 de l'ACL en attente des DC et des pairs Tailscale.
 - Synchronisation chrony non vérifiable sans DC.
