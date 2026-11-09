@@ -1,0 +1,22 @@
+---
+- name: Compte de sauvegarde dédié
+  ansible.builtin.user:
+    name: "{{ backup_remote_user }}"
+    shell: /bin/bash
+    create_home: true
+
+- name: sudo limité (tar de /etc uniquement)
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ backup_remote_user }}"
+    owner: root
+    group: root
+    mode: "0440"
+    content: "{{ backup_remote_user }} ALL=(root) NOPASSWD: /usr/bin/tar czf - /etc\n"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Clé SSH de LNX-OPS01 autorisée
+  ansible.posix.authorized_key:
+    user: "{{ backup_remote_user }}"
+    key: "{{ lookup('ansible.builtin.file', backup_pubkey_file) }}"
+    key_options: 'no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty'
+  ignore_errors: "{{ ansible_check_mode }}"  # en simulation le compte n'est pas encore créé
