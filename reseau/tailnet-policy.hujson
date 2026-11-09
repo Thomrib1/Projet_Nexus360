@@ -1,58 +1,79 @@
-// Politique d'accès du tailnet Nexus360 (versionnée dans reseau/tailnet-policy.hujson)
-// Format HuJSON : commentaires et virgules finales autorisés.
+// Politique d'accès du tailnet commun Nexus360 (versionnée dans reseau/tailnet-policy.hujson)
+// Format HuJSON : commentaires et virgules finales autorisés. Aucune adresse e-mail.
 {
-  "tagOwners": {
-    "tag:gateway": ["autogroup:admin"],
-  },
+	"tagOwners": {
+		"tag:gw": ["autogroup:admin"],
+	},
 
-  "hosts": {
-    "site1":     "10.36.11.0/24",
-    "site2":     "10.36.12.0/24",
-    "site3":     "10.36.13.0/24",
-    "site4":     "10.36.14.0/24",
-    "site5":     "10.36.15.0/24",
-    "dc01":      "10.36.11.10",
-    "srv-mgt01": "10.36.12.13",
-    "web01":     "10.36.13.21",
-    "bastion":   "10.36.13.22",
-    "mon01":     "10.36.13.23",
-  },
+	"hosts": {
+		"site1":     "10.36.11.0/24",
+		"site2":     "10.36.12.0/24",
+		"site3":     "10.36.13.0/24",
+		"site4":     "10.36.14.0/24",
+		"site5":     "10.36.15.0/24",
+		"lab":       "10.36.0.0/16",
+		"dc01":      "10.36.11.10",
+		"dc02":      "10.36.12.11",
+		"srv-mgt01": "10.36.12.13",
+		"web01":     "10.36.13.21",
+		"bastion":   "10.36.13.22",
+		"mon01":     "10.36.13.23",
+	},
 
-  // Les routes de chaque site sont approuvées automatiquement si elles viennent d'une passerelle.
-  "autoApprovers": {
-    "routes": {
-      "10.36.11.0/24": ["tag:gateway"],
-      "10.36.12.0/24": ["tag:gateway"],
-      "10.36.13.0/24": ["tag:gateway"],
-      "10.36.14.0/24": ["tag:gateway"],
-      "10.36.15.0/24": ["tag:gateway"],
-    },
-  },
+	// Les routes de chaque site sont approuvées automatiquement si elles viennent d'une passerelle.
+	"autoApprovers": {
+		"routes": {
+			"10.36.11.0/24": ["tag:gw"],
+			"10.36.12.0/24": ["tag:gw"],
+			"10.36.13.0/24": ["tag:gw"],
+			"10.36.14.0/24": ["tag:gw"],
+			"10.36.15.0/24": ["tag:gw"],
+		},
+	},
 
-  "acls": [
-    // 1. Les cinq sites communiquent entre eux (les passerelles routent sans NAT).
-    {
-      "action": "accept",
-      "src":    ["site1", "site2", "site3", "site4", "site5"],
-      "dst":    ["site1:*", "site2:*", "site3:*", "site4:*", "site5:*"],
-    },
-    // 2. Les utilisateurs des machines partagées n'atteignent que le bastion (SSH) et SRV-MGT01 (RDP, WinRM).
-    {
-      "action": "accept",
-      "src":    ["autogroup:shared"],
-      "dst":    ["bastion:22", "srv-mgt01:3389,5985,5986"],
-    },
-  ],
+	"acls": [
+		// 1. Les passerelles se joignent entre elles.
+		{"action": "accept", "src": ["tag:gw"], "dst": ["tag:gw:*"]},
 
-  // Tests exécutés à chaque enregistrement : si un test échoue, la politique est refusée.
-  "tests": [
-    {
-      "src":    "10.36.14.101",
-      "accept": ["dc01:445", "mon01:9090"],
-    },
-    {
-      "src":  "10.36.14.101",
-      "deny": ["8.8.8.8:53"],
-    },
-  ],
+		// 2. Entre sites : DNS 53, DHCP 67 (relais), Kerberos 88, NTP 123, RPC 135,
+		//    LDAP 389, SMB 445, kpasswd 464, LDAPS 636, catalogue global 3268,
+		//    WinRM 5985, ADWS 9389 et ports RPC dynamiques 49152-65535.
+		{
+			"action": "accept",
+			"src":    ["lab"],
+			"dst":    ["lab:53,67,88,123,135,389,445,464,636,3268,5985,9389,49152-65535"],
+		},
+
+		// 3. Supervision : métriques de MON01 (port 9090).
+		{"action": "accept", "src": ["lab"], "dst": ["mon01:9090"]},
+
+		// 4. ICMP (ping, PMTUD) entre sites.
+		{"action": "accept", "proto": "icmp", "src": ["lab"], "dst": ["lab:*"]},
+
+		// 5. Les utilisateurs des machines partagées n'atteignent que le bastion (SSH) et SRV-MGT01 (RDP, WinRM).
+		{
+			"action": "accept",
+			"src":    ["autogroup:shared"],
+			"dst":    ["bastion:22", "srv-mgt01:3389,5985,5986"],
+		},
+	],
+
+	// Tests exécutés à chaque enregistrement : si un test échoue, la politique est refusée.
+	"tests": [
+		// DC02 doit joindre DC01 pour la promotion.
+		{
+			"src":    "10.36.12.11",
+			"accept": ["dc01:53", "dc01:88", "dc01:135", "dc01:389", "dc01:445", "dc01:464", "dc01:5985", "dc01:9389"],
+		},
+		// Un poste du site 4 joint les DC et la supervision.
+		{
+			"src":    "10.36.14.101",
+			"accept": ["dc01:445", "dc02:445", "mon01:9090"],
+		},
+		// Pas d'accès à Internet par ce chemin, ni à RDP sur un contrôleur de domaine.
+		{
+			"src":  "10.36.14.101",
+			"deny": ["8.8.8.8:53", "dc01:3389"],
+		},
+	],
 }
