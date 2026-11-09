@@ -1,0 +1,62 @@
+---
+# --- Famille Debian/Ubuntu : unattended-upgrades ---
+- name: Paquets mises à jour auto (Ubuntu)
+  ansible.builtin.apt:
+    name: [unattended-upgrades, chrony]
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+
+- name: Activer les mises à jour quotidiennes (Ubuntu)
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      // Géré par Ansible
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+  when: ansible_os_family == "Debian"
+
+- name: Service chrony (Ubuntu)
+  ansible.builtin.service:
+    name: chrony
+    state: started
+    enabled: true
+  when: ansible_os_family == "Debian"
+
+# --- Famille RedHat/Rocky : dnf-automatic ---
+- name: Paquets mises à jour auto (Rocky)
+  ansible.builtin.dnf:
+    name: [dnf-automatic, chrony]
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Configuration dnf-automatic (Rocky)
+  ansible.builtin.copy:
+    dest: /etc/dnf/automatic.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Géré par Ansible : mises à jour de sécurité automatiques (B4)
+      [commands]
+      upgrade_type = {{ auto_updates_upgrade_type }}
+      apply_updates = yes
+  when: ansible_os_family == "RedHat"
+
+- name: Timer dnf-automatic actif (Rocky)
+  ansible.builtin.systemd:
+    name: dnf-automatic.timer
+    state: started
+    enabled: true
+  when: ansible_os_family == "RedHat"
+  ignore_errors: "{{ ansible_check_mode }}"  # en simulation le paquet n'est pas installé
+
+- name: Service chronyd (Rocky)
+  ansible.builtin.service:
+    name: chronyd
+    state: started
+    enabled: true
+  when: ansible_os_family == "RedHat"
