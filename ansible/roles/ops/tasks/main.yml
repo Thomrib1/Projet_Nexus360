@@ -29,13 +29,46 @@
     state: mounted
   loop: "{{ ops_volumes }}"
 
-- name: Compte de sauvegarde
-  ansible.builtin.user: {name: backup, shell: /bin/bash, home: /srv/backup/home}
+- name: Compte de sauvegarde (avec sa clé SSH)
+  ansible.builtin.user:
+    name: backup
+    shell: /bin/bash
+    home: /srv/backup/home
+    generate_ssh_key: true
+    ssh_key_type: ed25519
+    ssh_key_comment: backup@lnx-ops01
+
+- name: sudo limité pour le compte backup (tar de /etc uniquement)
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/backup
+    owner: root
+    group: root
+    mode: "0440"
+    content: "backup ALL=(root) NOPASSWD: /usr/bin/tar czf - /etc\n"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Dossier des sauvegardes /etc
+  ansible.builtin.file:
+    path: /srv/backup/etc
+    state: directory
+    owner: backup
+    group: backup
+    mode: "0750"
+
+- name: Clé publique de backup, lisible pour déployer sur les cibles
+  ansible.builtin.copy:
+    src: /srv/backup/home/.ssh/id_ed25519.pub
+    dest: /srv/backup/backup_key.pub
+    remote_src: true
+    mode: "0644"
+  ignore_errors: "{{ ansible_check_mode }}"
 
 - name: Script de sauvegarde (/etc Linux)
   ansible.builtin.template:
     src: backup-etc.sh.j2
     dest: /usr/local/sbin/backup-etc.sh
+    owner: root
+    group: backup
     mode: "0750"
 
 - name: Timer quotidien
@@ -45,7 +78,7 @@
     content: "{{ item.c }}"
   loop:
     - n: backup-etc.service
-      c: "[Unit]\nDescription=Sauvegarde /etc\n[Service]\nType=oneshot\nExecStart=/usr/local/sbin/backup-etc.sh\n"
+      c: "[Unit]\nDescription=Sauvegarde /etc\n[Service]\nType=oneshot\nUser=backup\nExecStart=/usr/local/sbin/backup-etc.sh\n"
     - n: backup-etc.timer
       c: "[Unit]\nDescription=Sauvegarde quotidienne\n[Timer]\nOnCalendar=*-*-* 02:00:00\nPersistent=true\n[Install]\nWantedBy=timers.target\n"
 

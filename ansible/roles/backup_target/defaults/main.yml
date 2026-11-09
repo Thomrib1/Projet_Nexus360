@@ -1,0 +1,4 @@
+# Compte dédié (le compte "backup" existe déjà sous Ubuntu : on ne le réutilise pas)
+backup_remote_user: svc_backup
+# Clé publique du compte backup de LNX-OPS01 (lue sur le nœud de contrôle, qui est LNX-OPS01)
+backup_pubkey_file: /srv/backup/backup_key.pub
