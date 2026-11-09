@@ -1,0 +1,2 @@
+# Mises à jour de sécurité automatiques (B4) + heure (chrony)
+auto_updates_upgrade_type: security   # Rocky : security | default
