@@ -63,6 +63,5 @@
 | 2026-11-09 12:04 | CLI-LNX01 | dhcp-identifier mac ajouté dans netplan (profil NetworkManager netplan-ens33) : réservation par MAC compatible avec les DC. Activation échouée une première fois car TMP-DHCP était éteinte, résolue en allumant TMP-DHCP | OK | preuves/A2-cli-lnx01-netplan-identifier.png, preuves/A2-cli-lnx01-dhcp-identifier.png |
 | 2026-11-09 12:07 | CLI-LNX01 | Snapshot cli-lnx01-pret | OK | preuves/A2-cli-lnx01-snapshot.png |
 | 2026-11-09 12:10 | Thomas / DHCP | Réponse reçue : options d'étendue, relais vers les deux DC (équilibrage 50/50), réservations acceptées, OU des postes (Windows, Pilote, Linux) | OK | preuves/E1-reponse-thomas-dhcp-ou.png |
-
 | 2026-11-09 12:50 | Réseau | Rédaction du DAT réseau (docs/dat-reseau.md) et des runbooks (docs/runbooks/runbooks.md), tableau des postes corrigé | OK | preuves/E1-pr-dat-runbooks.png |
 | 2026-11-09 12:50 | Réseau | Mise à jour du README du dossier reseau (tests, postes, limites) | OK | preuves/E1-pr-dat-runbooks.png |
