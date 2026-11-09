@@ -29,7 +29,7 @@ Auteur : Benor (Mathys) · Périmètre : passerelles LNX-GW01..05, accès Tailsc
 
 Routes statiques : `10.36.1m.0/24 via 10.36.0.m` sur chaque passerelle pour les autres sites.
 
-Postes (sites 4 et 5) : pool DHCP .110–.200 ; réservations par MAC (CLI-W11-01 → 10.36.14.101, CLI-W11-02 → 10.36.14.102).
+Postes : pool DHCP .110–.200 sur les sites 4 et 5 ; réservations par MAC sur le site 4 (CLI-W11-01 → 10.36.14.101, CLI-LNX01 → 10.36.14.102). CLI-W11-02 est sur le site 5 (VMnet15).
 
 ## 3. Flux et ports
 
@@ -58,11 +58,11 @@ Fichier `tailnet-policy.hujson` : tags `tag:gateway`, hôtes des sites, autoAppr
 
 ## 6. Postes
 
-| Poste | OS | OU cible |
-|---|---|---|
-| CLI-W11-01 | Windows 11 Pro | OU=Windows,OU=Postes,OU=NEXUS360,DC=ad,DC=nexus360,DC=test |
-| CLI-W11-02 | Windows 11 Pro | OU=Pilote,OU=Postes,OU=NEXUS360,… |
-| CLI-LNX01 | Ubuntu 26.04 LTS Desktop (NetworkManager, SSSD) | OU=Linux,OU=Postes,OU=NEXUS360,… |
+| Poste | Site / MAC | OS | OU cible |
+|---|---|---|---|
+| CLI-W11-01 | Site 4, 00:50:56:2E:14:01, 10.36.14.101 | Windows 11 Pro | OU=Windows,OU=Postes,OU=NEXUS360,DC=ad,DC=nexus360,DC=test |
+| CLI-W11-02 | Site 5, 00:50:56:2E:15:01, DHCP, bail 10.36.15.110 | Windows 11 Pro | OU=Pilote,OU=Postes,OU=NEXUS360,… |
+| CLI-LNX01 | Site 4, 00:50:56:2E:14:02, 10.36.14.102 | Ubuntu 26.04 LTS Desktop (NetworkManager, SSSD) | OU=Linux,OU=Postes,OU=NEXUS360,… |
 
 Identifiant DHCP basé sur la MAC (`dhcp-identifier: mac`) pour que les réservations soient stables. Jonction avec le compte de service `svc-adjoin` (mot de passe jamais dans Git).
 
