@@ -1,0 +1,5 @@
+{
+  "FileGroupName": "Nexus-Executables",
+  "TemplateName": "Nexus-Blocage-Executables",
+  "Patterns": [ "*.exe", "*.bat", "*.cmd", "*.msi", "*.ps1", "*.vbs", "*.scr", "*.com" ]
+}
