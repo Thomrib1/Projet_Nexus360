@@ -1,0 +1,29 @@
+---
+# Playbook principal. Exigence A6 : un second passage doit afficher changed=0 (vérifié par le pipeline).
+#
+# Les plays base, web et ops sont COMMENTÉS tant que le rôle 3 n'a pas poussé ses rôles dans le dépôt :
+# un rôle absent fait échouer l'analyse du pipeline. Le rôle 3 les décommente dans SA pull request,
+# en intégrant les fragments fournis par le rôle 4 :
+#   roles/base/tasks/supervision_journaux.yml  (node_exporter, rsyslog client, sauvegarde /etc)
+#   roles/ops/tasks/sauvegardes.yml            (planification des sauvegardes, après /srv/backup)
+# L'ordre des plays compte : base doit toujours passer en premier.
+
+# - name: Socle commun de tous les Linux
+#   hosts: linux
+#   roles:
+#     - base
+
+# - name: Serveur web de l'intranet
+#   hosts: web
+#   roles:
+#     - web
+
+# - name: Bastion, runner CI et sauvegardes
+#   hosts: ops
+#   roles:
+#     - ops
+
+- name: Journaux centralisés et supervision
+  hosts: mon
+  roles:
+    - mon

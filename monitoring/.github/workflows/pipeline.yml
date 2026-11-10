@@ -1,0 +1,211 @@
+# Pipeline Nexus360 — propriétaire : rôle 4 (Exploitation). Seul le rôle 4 (Dilane) modifie ce fichier (CODEOWNERS).
+#
+# Dépendances entre rôles :
+#   - runner auto-hébergé sur LNX-OPS01 : VM installée par le rôle 3 sur SON PC ; runner installé par le rôle 4
+#   - déploiement Linux : rôles base/web/ops fournis par le rôle 3, rôle mon par le rôle 4
+#   - déploiement Windows : OpenSSH + compte svc-deploy sur SRV-MGT01 (rôle 2, compte créé par le rôle 1),
+#     scripts PowerShell des rôles 1 et 2 listés dans windows/config/deploiement.json
+#   - le runner (site 3) joint MGT01 (site 2) et MON01 (site 4) à travers le tailnet (rôle 5)
+#
+#  Pull request vers main  : analyse  ->  vérification à blanc (ansible --check --diff + PowerShell -WhatIf)
+#  Fusion dans main        : analyse  ->  déploiement Linux -> contrôle d'idempotence (changed=0)
+#                                     ->  déploiement Windows -> tests de fumée -> annotation Grafana
+#  Retour arrière          : git revert <commit> + PR : le pipeline redéploie l'état précédent.
+#
+# Les jobs "analyse" tournent sur un runner hébergé GitHub (outils déjà présents, aucun accès au labo).
+# Les jobs qui touchent l'infrastructure tournent sur le runner auto-hébergé de LNX-OPS01.
+name: pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Jamais deux déploiements en parallèle sur la même infrastructure
+concurrency:
+  group: nexus360-${{ github.event_name == 'push' && 'deploy' || github.ref }}
+  cancel-in-progress: false
+
+env:
+  PROMETHEUS_VERSION: "3.5.0"
+  ANSIBLE_FORCE_COLOR: "1"
+
+jobs:
+  # ------------------------------------------------------------------ 1. ANALYSE
+  analyse:
+    name: Analyse statique
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # historique complet pour la recherche de secrets
+
+      - name: Recherche de secrets (gitleaks)
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
+            | sudo tar xz -C /usr/local/bin gitleaks
+          gitleaks git --redact --verbose .
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Outils Ansible
+        run: |
+          pip install --quiet ansible-core ansible-lint yamllint
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: yamllint
+        run: yamllint -s .
+
+      # Tant que le secret n'est pas créé (par le propriétaire du dépôt 'Thomrib1'), l'analyse utilise une valeur
+      # factice : elle ne déchiffre rien, elle évite seulement l'erreur du script vault-pass.sh.
+      - name: ansible-lint
+        working-directory: ansible
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD || 'analyse-sans-coffre' }}
+        run: ansible-lint site.yml
+
+      - name: Syntaxe du playbook
+        working-directory: ansible
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD || 'analyse-sans-coffre' }}
+        run: ansible-playbook site.yml --syntax-check
+
+      - name: Règles d'alerte Prometheus (syntaxe + tests unitaires)
+        run: |
+          curl -sSL "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz" \
+            | sudo tar xz --strip-components=1 -C /usr/local/bin "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+          promtool check rules ansible/roles/mon/files/rules/*.yml
+          promtool test rules tests/prometheus/*.yml
+
+      - name: Tableau de bord Grafana (JSON valide)
+        run: |
+          for f in ansible/roles/mon/files/dashboards/*.json windows/config/*.json; do
+            jq empty "$f" && echo "OK $f"
+          done
+
+      - name: Scripts shell (shellcheck)
+        run: shellcheck -x scripts/*.sh scripts/github/*.sh
+
+      - name: Scripts PowerShell (PSScriptAnalyzer)
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          $r = Invoke-ScriptAnalyzer -Path windows -Recurse -Severity Error,Warning `
+                 -ExcludeRule PSAvoidUsingWriteHost
+          $r | Format-Table -AutoSize
+          if ($r | Where-Object Severity -eq 'Error') { throw "PSScriptAnalyzer : erreurs bloquantes" }
+
+  # ------------------------------------------------------------------ 2. VÉRIFICATION À BLANC (PR)
+  verification:
+    name: Vérification à blanc (check / WhatIf)
+    if: github.event_name == 'pull_request'
+    needs: analyse
+    runs-on: [self-hosted, linux, nexus360]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collections Ansible
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Ansible --check --diff (aucun changement appliqué)
+        working-directory: ansible
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: ansible-playbook site.yml --check --diff -e deploy_commit=${{ github.sha }}
+
+      - name: PowerShell -WhatIf sur SRV-MGT01
+        run: |
+          ssh -o BatchMode=yes svc-deploy@srv-mgt01.ad.nexus360.test \
+            "powershell -NoProfile -File C:\\Nexus360\\windows\\scripts\\Invoke-Deploy.ps1 -Commit ${{ github.event.pull_request.head.sha }} -WhatIf"
+
+  # ------------------------------------------------------------------ 3. DÉPLOIEMENT LINUX (main)
+  deploiement-linux:
+    name: Déploiement Linux + idempotence
+    if: github.event_name != 'pull_request'
+    needs: analyse
+    runs-on: [self-hosted, linux, nexus360]
+    # Pas de "environment:" : sur un dépôt privé, la validation manuelle d'environnement n'existe
+    # sur aucune offre GitHub. Le contrôle humain est la PR relue et approuvée (branche protégée).
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collections Ansible
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Premier passage (application)
+        working-directory: ansible
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          set -o pipefail
+          ansible-playbook site.yml -e deploy_commit=${{ github.sha }} | tee /tmp/passage1.log
+
+      - name: Second passage — doit afficher changed=0 (exigence A6)
+        working-directory: ansible
+        env:
+          ANSIBLE_VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          set -o pipefail
+          ANSIBLE_FORCE_COLOR=0 ansible-playbook site.yml -e deploy_commit=${{ github.sha }} | tee /tmp/passage2.log
+          if grep -E 'changed=[1-9]' /tmp/passage2.log; then
+            echo "::error::Rôles non idempotents : le second passage a modifié des machines"
+            exit 1
+          fi
+          echo "Idempotence vérifiée : changed=0 partout"
+
+  # ------------------------------------------------------------------ 4. DÉPLOIEMENT WINDOWS (main)
+  deploiement-windows:
+    name: Déploiement Windows (SRV-MGT01)
+    if: github.event_name != 'pull_request'
+    needs: deploiement-linux
+    runs-on: [self-hosted, linux, nexus360]
+    steps:
+      - name: Invoke-Deploy.ps1 sur SRV-MGT01
+        run: |
+          ssh -o BatchMode=yes svc-deploy@srv-mgt01.ad.nexus360.test \
+            "powershell -NoProfile -File C:\\Nexus360\\windows\\scripts\\Invoke-Deploy.ps1 -Commit ${{ github.sha }}"
+
+  # ------------------------------------------------------------------ 5. TESTS DE FUMÉE + TRACE
+  verification-post-deploiement:
+    name: Tests de fumée
+    if: github.event_name != 'pull_request'
+    needs: [deploiement-linux, deploiement-windows]
+    runs-on: [self-hosted, linux, nexus360]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: L'intranet affiche le commit déployé (exigence A3)
+        run: |
+          sleep 5
+          curl -fsS http://intranet.ad.nexus360.test | grep -q "${GITHUB_SHA::7}" \
+            && echo "Intranet à jour : ${GITHUB_SHA::7}"
+
+      - name: Toutes les cibles Prometheus répondent
+        run: |
+          down=$(curl -fsS 'http://lnx-mon01.ad.nexus360.test:9090/api/v1/query' \
+                   --data-urlencode 'query=count(up{job=~"linux|windows"} == 0) or vector(0)' \
+                 | jq -r '.data.result[0].value[1]')
+          echo "Cibles en panne : $down"
+          [ "$down" = "0" ]
+
+      - name: Bilan complet de l'infrastructure
+        run: bash scripts/check-infra.sh --court
+
+      - name: Annotation "déploiement" dans Grafana (traçabilité)
+        if: always()
+        env:
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
+        run: |
+          [ -z "$GRAFANA_TOKEN" ] && { echo "GRAFANA_TOKEN absent : annotation ignorée"; exit 0; }
+          msg=$(git log -1 --format='%h %s (%an)')
+          jq -n --arg t "Déploiement ${{ job.status }} : $msg" \
+             '{dashboardUID:"nexus360-site", tags:["deploiement","pipeline"], text:$t}' \
+          | curl -fsS -X POST http://lnx-mon01.ad.nexus360.test:3000/api/annotations \
+              -H "Authorization: Bearer $GRAFANA_TOKEN" -H 'Content-Type: application/json' -d @-

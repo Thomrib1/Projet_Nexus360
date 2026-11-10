@@ -1,0 +1,41 @@
+---
+# Valeurs par défaut du rôle mon (surchargées dans inventory/group_vars/mon.yml)
+prometheus_version: "3.5.0"
+alertmanager_version: "0.28.1"
+blackbox_exporter_version: "0.27.0"
+
+prometheus_retention: 15d
+prometheus_scrape_interval: 15s
+prometheus_evaluation_interval: 15s
+
+prometheus_config_dir: /etc/prometheus
+prometheus_data_dir: /var/lib/prometheus
+alertmanager_config_dir: /etc/alertmanager
+alertmanager_data_dir: /var/lib/alertmanager
+blackbox_config_dir: /etc/blackbox_exporter
+
+# Arch des binaires téléchargés
+mon_arch: amd64
+mon_download_dir: /opt/nexus-mon/dist
+
+grafana_admin_password: ""
+alertmanager_discord_webhook: ""
+alertmanager_smtp:
+  enabled: false
+  smarthost: "smtp.example.test:587"
+  from: "alertes@nexus360.test"
+  to: "exploitation@nexus360.test"
+  username: "alertes@nexus360.test"
+  password: "{{ vault_alertmanager_smtp_password | default('') }}"
+
+mon_grafana_allowed_sources: ["10.36.12.13/32", "10.36.13.22/32"]
+mon_admin_allowed_sources: ["10.36.13.22/32", "10.36.12.13/32"]
+
+# Rsyslog central
+rsyslog_central_port: 514
+rsyslog_remote_dir: /var/log/remote
+rsyslog_remote_rotate_days: 30
+
+blackbox_http_targets: []
+blackbox_tcp_targets: []
+blackbox_dns_targets: []

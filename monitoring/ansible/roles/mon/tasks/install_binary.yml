@@ -1,0 +1,31 @@
+---
+# Installe un binaire officiel Prometheus (tarball GitHub) de façon idempotente :
+#  1. téléchargement avec vérification SHA-256 (fichier sha256sums.txt publié par le projet)
+#  2. extraction dans un répertoire versionné (creates => rien à faire au 2e passage)
+#  3. copie des binaires dans /usr/local/bin (contexte SELinux bin_t, exécutable par systemd)
+# Paramètres : bin_project (ex. prometheus), bin_version, bin_files (liste)
+- name: "Télécharger l'archive officielle de {{ bin_project ~ ' ' ~ bin_version }}"
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/{{ bin_project }}/releases/download/v{{ bin_version }}/{{ bin_project }}-{{ bin_version }}.linux-{{ mon_arch }}.tar.gz"
+    dest: "{{ mon_download_dir }}/{{ bin_project }}-{{ bin_version }}.linux-{{ mon_arch }}.tar.gz"
+    checksum: "sha256:https://github.com/prometheus/{{ bin_project }}/releases/download/v{{ bin_version }}/sha256sums.txt"
+    mode: "0644"
+
+- name: "Extraire l'archive {{ bin_project }}"
+  ansible.builtin.unarchive:
+    src: "{{ mon_download_dir }}/{{ bin_project }}-{{ bin_version }}.linux-{{ mon_arch }}.tar.gz"
+    dest: "{{ mon_download_dir }}"
+    remote_src: true
+    creates: "{{ mon_download_dir }}/{{ bin_project }}-{{ bin_version }}.linux-{{ mon_arch }}/{{ bin_files[0] }}"
+
+- name: "Installer dans /usr/local/bin les binaires de {{ bin_project }}"
+  ansible.builtin.copy:
+    src: "{{ mon_download_dir }}/{{ bin_project }}-{{ bin_version }}.linux-{{ mon_arch }}/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+    setype: bin_t
+  loop: "{{ bin_files }}"
+  notify: "Redémarrer {{ bin_service }}"

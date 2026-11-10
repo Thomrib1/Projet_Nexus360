@@ -1,0 +1,31 @@
+---
+# Variables spécifiques à LNX-MON01 (rôle mon)
+prometheus_version: "3.5.0"          # version LTS
+alertmanager_version: "0.28.1"
+blackbox_exporter_version: "0.27.0"
+
+prometheus_retention: 15d
+prometheus_scrape_interval: 15s
+
+grafana_admin_password: "{{ vault_grafana_admin_password }}"
+alertmanager_discord_webhook: "{{ vault_alertmanager_discord_webhook | default('') }}"
+
+# Qui peut joindre Grafana (3000) : SRV-MGT01 + bastion (tunnel SSH depuis les PC membres)
+mon_grafana_allowed_sources:
+  - "{{ mgt_server_ip }}/32"
+  - "{{ ops_server_ip }}/32"
+# Qui peut consulter Prometheus / Alertmanager (API, amtool) : bastion + MGT01
+mon_admin_allowed_sources:
+  - "{{ ops_server_ip }}/32"
+  - "{{ mgt_server_ip }}/32"
+
+# Sondes boîte noire (bonus blackbox_exporter) : on teste le service RENDU, pas seulement la machine
+blackbox_http_targets:
+  - http://intranet.ad.nexus360.test
+blackbox_tcp_targets:
+  - { target: "10.36.11.10:389", name: "ldap-dc01" }
+  - { target: "10.36.14.11:389", name: "ldap-dc02" }
+  - { target: "10.36.12.12:445", name: "smb-fs01" }
+blackbox_dns_targets:
+  - 10.36.11.10
+  - 10.36.14.11

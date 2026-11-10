@@ -1,0 +1,29 @@
+---
+# Variables communes à toutes les machines Linux.
+nexus_domain: ad.nexus360.test
+nexus_lab_network: 10.36.0.0/16
+
+# Serveur d'exploitation (journaux + supervision) et bastion/sauvegardes
+mon_server_ip: 10.36.14.23      # LNX-MON01, hébergé sur le PC du rôle 4 (site 4)
+ops_server_ip: 10.36.13.22      # LNX-OPS01, hébergé sur le PC du rôle 3 (site 3)
+mgt_server_ip: 10.36.12.13      # SRV-MGT01, hébergé sur le PC du rôle 2 (site 2)
+
+# Port rsyslog central (TCP). 6514 si le bonus TLS est activé.
+rsyslog_central_port: 514
+
+# node_exporter (installé par le rôle base sur tous les Linux)
+node_exporter_version: "1.9.1"
+node_exporter_textfile_dir: /var/lib/node_exporter/textfile
+node_exporter_systemd_units: >-
+  (nginx|sshd|sssd|rsyslog|chronyd|crond|firewalld|tailscaled|prometheus|alertmanager|blackbox_exporter|grafana-server|node_exporter|dnf-automatic.*|nexus-.*)\.(service|timer)
+
+# Serveurs Windows supervisés (windows_exporter, port 9182).
+# L'agent est installé depuis SRV-MGT01 par Install-WindowsExporter.ps1 (écrit par moi le rôle 4, lancé avec le rôle 2).
+windows_servers:
+  - { name: srv-dc01, ip: 10.36.11.10, role: dc, site: site1 }          # PC rôle 1
+  - { name: srv-dc02, ip: 10.36.14.11, role: dc, site: site4 }          # PC rôle 4 (admin rôle 1)
+  - { name: srv-fs01, ip: 10.36.12.12, role: fichiers, site: site2 }    # PC rôle 2
+  - { name: srv-mgt01, ip: 10.36.12.13, role: administration, site: site2 }  # PC rôle 2
+
+# Sources de sauvegarde /etc attendues sur LNX-OPS01 (sert aussi à l'alerte "sauvegarde trop vieille")
+backup_retention_days: 7

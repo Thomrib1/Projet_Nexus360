@@ -1,0 +1,85 @@
+---
+- name: Dépôt officiel Grafana
+  ansible.builtin.yum_repository:
+    name: grafana
+    description: Grafana OSS
+    baseurl: https://rpm.grafana.com
+    gpgkey: https://rpm.grafana.com/gpg.key
+    gpgcheck: true
+    repo_gpgcheck: true
+    sslverify: true
+    sslcacert: /etc/pki/tls/certs/ca-bundle.crt
+
+- name: Installer Grafana
+  ansible.builtin.dnf:
+    name: grafana
+    state: present
+
+- name: Configuration Grafana (mot de passe admin depuis le coffre, pas d'inscription)
+  ansible.builtin.template:
+    src: grafana.ini.j2
+    dest: /etc/grafana/grafana.ini
+    owner: root
+    group: grafana
+    mode: "0640"
+  no_log: true
+  notify: Redémarrer grafana-server
+
+- name: Source de données Prometheus provisionnée
+  ansible.builtin.copy:
+    dest: /etc/grafana/provisioning/datasources/prometheus.yml
+    owner: root
+    group: grafana
+    mode: "0640"
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          uid: prometheus
+          type: prometheus
+          access: proxy
+          url: http://127.0.0.1:9090
+          isDefault: true
+          editable: false
+        - name: Alertmanager
+          uid: alertmanager
+          type: alertmanager
+          access: proxy
+          url: http://127.0.0.1:9093
+          jsonData:
+            implementation: prometheus
+  notify: Redémarrer grafana-server
+
+- name: Fournisseur de tableaux de bord (fichiers versionnés dans Git)
+  ansible.builtin.copy:
+    dest: /etc/grafana/provisioning/dashboards/nexus360.yml
+    owner: root
+    group: grafana
+    mode: "0640"
+    content: |
+      apiVersion: 1
+      providers:
+        - name: nexus360
+          folder: Nexus360
+          type: file
+          disableDeletion: true
+          allowUiUpdates: false
+          options:
+            path: /var/lib/grafana/dashboards
+  notify: Redémarrer grafana-server
+
+- name: Répertoire des tableaux de bord
+  ansible.builtin.file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: "0750"
+
+- name: Tableau de bord "État du site" (une page)
+  ansible.builtin.copy:
+    src: dashboards/nexus360-etat-du-site.json
+    dest: /var/lib/grafana/dashboards/nexus360-etat-du-site.json
+    owner: grafana
+    group: grafana
+    mode: "0640"

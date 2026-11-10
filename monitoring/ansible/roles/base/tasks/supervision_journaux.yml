@@ -1,0 +1,228 @@
+---
+# FRAGMENT FOURNI PAR LE RÔLE 4 (Exploitation) À INTÉGRER DANS LE RÔLE base (rôle 3).
+# Dans roles/base/tasks/main.yml, ajouter :
+#   - name: Supervision, journaux et sauvegarde /etc (fragment exploitation)
+#     ansible.builtin.import_tasks: supervision_journaux.yml
+# Et dans roles/base/handlers/main.yml, les handlers listés en bas de ce fichier.
+#
+# Couvre : node_exporter (C2), envoi rsyslog vers LNX-MON01 (D1), sauvegarde quotidienne de /etc (C3).
+#
+# Machines    : TOUS les Linux (groupe linux) : VM des PC des rôles 3 (WEB01, OPS01, APP01), 4 (MON01),
+#               5 (CLI-LNX01) et les 5 passerelles (une par PC)
+# Écrit par   : rôle 4 — Intégré et maintenu dans base par : rôle 3 — Appliqué par : le pipeline
+# Dépend de   : rôle 3 (compte ansible, sshd avec AllowGroups incluant nexus-backup sur OPS01),
+#               rôle 4 (LNX-MON01 prêt à recevoir sur 514/tcp),
+#               rôle 5 (tailnet : chaque Linux joint MON01:514 et OPS01:22 ; MON01 joint les 9100)
+
+# ---------------------------------------------------------------- VMware
+# open-vm-tools : arrêt propre par « vmrun stop soft » (hyperviseur/Start-NexusSite.ps1 -Arret, exigence C4)
+- name: VMware | outils invités installés et actifs
+  ansible.builtin.package:
+    name: open-vm-tools
+    state: present
+  when: ansible_facts['virtualization_type'] == 'VMware'
+
+- name: VMware | service des outils invités
+  ansible.builtin.systemd_service:
+    name: "{{ 'vmtoolsd' if ansible_facts['os_family'] == 'RedHat' else 'open-vm-tools' }}"
+    state: started
+    enabled: true
+  when: ansible_facts['virtualization_type'] == 'VMware'
+
+# ---------------------------------------------------------------- node_exporter
+- name: Node_exporter | utilisateur système
+  ansible.builtin.user:
+    name: node_exporter
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+
+- name: Node_exporter | répertoires
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /opt/nexus-mon/dist
+    - "{{ node_exporter_textfile_dir }}"
+
+- name: Node_exporter | télécharger (vérification SHA-256)
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    dest: "/opt/nexus-mon/dist/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    checksum: "sha256:https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/sha256sums.txt"
+    mode: "0644"
+
+- name: Node_exporter | extraire
+  ansible.builtin.unarchive:
+    src: "/opt/nexus-mon/dist/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    dest: /opt/nexus-mon/dist
+    remote_src: true
+    creates: "/opt/nexus-mon/dist/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+
+- name: Node_exporter | installer le binaire
+  ansible.builtin.copy:
+    src: "/opt/nexus-mon/dist/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+    dest: /usr/local/bin/node_exporter
+    remote_src: true
+    owner: root
+    group: root
+    mode: "0755"
+    setype: bin_t
+  notify: Redémarrer node_exporter
+
+- name: Node_exporter | unité systemd
+  ansible.builtin.template:
+    src: node_exporter.service.j2
+    dest: /etc/systemd/system/node_exporter.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Redémarrer node_exporter
+
+- name: Node_exporter | démarré et activé
+  ansible.builtin.systemd_service:
+    name: node_exporter
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Node_exporter | port 9100 ouvert à LNX-MON01 seulement (Rocky)
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ mon_server_ip }}/32" port port="9100" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Node_exporter | port 9100 ouvert à LNX-MON01 seulement (Ubuntu / ufw)
+  community.general.ufw:
+    rule: allow
+    src: "{{ mon_server_ip }}"
+    port: "9100"
+    proto: tcp
+  when: ansible_facts['os_family'] == 'Debian'
+
+# ---------------------------------------------------------------- rsyslog client
+- name: Rsyslog | installé
+  ansible.builtin.package:
+    name: rsyslog
+    state: present
+
+- name: Rsyslog | transfert TCP vers LNX-MON01 avec file d'attente disque
+  ansible.builtin.template:
+    src: rsyslog-forward.conf.j2
+    dest: /etc/rsyslog.d/90-nexus-forward.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: inventory_hostname not in groups['mon']
+  notify: Redémarrer rsyslog
+
+- name: Rsyslog | démarré et activé
+  ansible.builtin.systemd_service:
+    name: rsyslog
+    state: started
+    enabled: true
+
+# ---------------------------------------------------------------- sauvegarde /etc (C3)
+# Modèle "push" : chaque machine envoie une archive de /etc vers LNX-OPS01.
+# La clé n'autorise QU'UNE commande côté OPS01 (dépôt de l'archive de CETTE machine) : pas de shell.
+# Le compte de réception est créé ICI (et non dans le rôle ops) car l'ordre des tâches Ansible
+# garantit qu'il existe sur OPS01 avant que les autres machines y déposent leur clé publique.
+# Home sous /home => contexte SELinux ssh_home_t sur ~/.ssh, sinon sshd refuse la clé en enforcing.
+# Le shell doit être valide pour exécuter la commande forcée ; "restrict" interdit pty, tunnels, agent.
+# NB rôle 3 : ajouter le groupe nexus-backup à AllowGroups dans sshd_config (sur OPS01).
+- name: Sauvegarde | compte de réception sur LNX-OPS01
+  ansible.builtin.user:
+    name: nexus-backup
+    system: true
+    home: /home/nexus-backup
+    shell: /bin/bash
+    password: "!"
+  when: inventory_hostname in groups['ops']
+
+- name: Sauvegarde | script de réception sur LNX-OPS01
+  ansible.builtin.copy:
+    src: nexus-backup-receive
+    dest: /usr/local/sbin/nexus-backup-receive
+    owner: root
+    group: root
+    mode: "0755"
+  when: inventory_hostname in groups['ops']
+
+- name: Sauvegarde | clé SSH dédiée (générée sur la machine, jamais dans Git)
+  community.crypto.openssh_keypair:
+    path: /root/.ssh/nexus_backup_ed25519
+    type: ed25519
+    comment: "backup-etc@{{ inventory_hostname }}"
+    mode: "0600"
+  register: backup_key
+  when: inventory_hostname not in groups['ops']
+
+- name: Sauvegarde | autoriser la clé sur LNX-OPS01 (commande forcée, origine restreinte)
+  ansible.posix.authorized_key:
+    user: nexus-backup
+    key: "{{ backup_key.public_key }}"
+    key_options: >-
+      command="/usr/local/sbin/nexus-backup-receive etc {{ inventory_hostname }}",from="{{ ansible_host }}",restrict
+    state: present
+  delegate_to: "{{ groups['ops'][0] }}"
+  when: inventory_hostname not in groups['ops']
+
+- name: Sauvegarde | script d'envoi
+  ansible.builtin.template:
+    src: nexus-backup-etc.sh.j2
+    dest: /usr/local/sbin/nexus-backup-etc
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Sauvegarde | service et minuterie systemd (quotidien, 01:30 ± 15 min)
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: "{{ item.content }}"
+  loop:
+    - name: nexus-backup-etc.service
+      content: |
+        # Géré par Ansible — sauvegarde quotidienne de /etc vers LNX-OPS01 (exigence C3)
+        [Unit]
+        Description=Sauvegarde de /etc vers LNX-OPS01
+        Wants=network-online.target
+        After=network-online.target
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/nexus-backup-etc
+    - name: nexus-backup-etc.timer
+      content: |
+        [Unit]
+        Description=Planification quotidienne de la sauvegarde de /etc
+        [Timer]
+        OnCalendar=*-*-* 01:30:00
+        RandomizedDelaySec=15min
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Recharger systemd
+
+- name: Sauvegarde | minuterie activée
+  ansible.builtin.systemd_service:
+    name: nexus-backup-etc.timer
+    state: started
+    enabled: true
+    daemon_reload: true
+
+# Handlers à ajouter dans roles/base/handlers/main.yml :
+# - name: Redémarrer node_exporter
+#   ansible.builtin.systemd_service: { name: node_exporter, state: restarted, daemon_reload: true }
+# - name: Redémarrer rsyslog
+#   ansible.builtin.systemd_service: { name: rsyslog, state: restarted }
+# - name: Recharger systemd
+#   ansible.builtin.systemd_service: { daemon_reload: true }

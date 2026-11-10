@@ -1,0 +1,24 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Blackbox exporter - sondes du service rendu
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=blackbox
+Group=blackbox
+ExecStart=/usr/local/bin/blackbox_exporter \
+  --config.file={{ blackbox_config_dir }}/blackbox.yml \
+  --web.listen-address=127.0.0.1:9115
+# Nécessaire uniquement pour le module icmp
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

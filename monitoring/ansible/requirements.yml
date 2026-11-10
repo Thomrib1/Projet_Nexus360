@@ -1,0 +1,8 @@
+---
+collections:
+  - name: ansible.posix        # firewalld, seboolean, authorized_key, profile_tasks
+    version: ">=1.5.0"
+  - name: community.general    # timezone, ini_file, etc.
+    version: ">=8.0.0"
+  - name: community.crypto     # génération des clés SSH de sauvegarde
+    version: ">=2.15.0"

@@ -1,0 +1,9 @@
+{
+  "_commentaire": "Ordre d'exécution du déploiement Windows. Les scripts des rôles 1 et 2 sont ajoutés ici au fur et à mesure (chacun doit supporter -WhatIf).",
+  "etapes": [
+    { "nom": "OU et groupes (rôle 1)",           "script": "windows\\scripts\\Set-NexusOU.ps1" },
+    { "nom": "Utilisateurs depuis CSV (rôle 1)", "script": "windows\\scripts\\Import-NexusUsers.ps1" },
+    { "nom": "Partages et quotas (rôle 2)",      "script": "windows\\scripts\\Set-NexusShares.ps1" },
+    { "nom": "Supervision Windows (rôle 4)",     "script": "windows\\scripts\\Install-WindowsExporter.ps1" }
+  ]
+}

@@ -1,0 +1,16 @@
+---
+# MODÈLE — ne jamais committer le fichier en clair.
+# Création du vrai coffre (sur LNX-OPS01) :
+#   cp vault.yml.example vault.yml
+#   ansible-vault encrypt vault.yml          # demande le mot de passe du coffre
+#   ansible-vault edit vault.yml             # pour modifier ensuite
+# Le fichier chiffré vault.yml PEUT être committé (il est illisible sans le mot de passe).
+
+vault_grafana_admin_password: "A-CHANGER"
+# Webhook Discord/Teams/Slack pour Alertmanager (laisser vide = pas de notification externe)
+vault_alertmanager_discord_webhook: ""
+# Option e-mail
+vault_alertmanager_smtp_password: ""
+# Compte AD de sauvegarde des partages SRV-FS01 (lecture seule)
+vault_fs01_backup_user: "svc-backup"
+vault_fs01_backup_password: "A-CHANGER"

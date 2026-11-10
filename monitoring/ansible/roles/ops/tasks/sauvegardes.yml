@@ -1,0 +1,125 @@
+---
+# FRAGMENT FOURNI PAR LE RÔLE 4 (Exploitation) À INTÉGRER DANS LE RÔLE ops (rôle 3).
+# Dans roles/ops/tasks/main.yml, APRÈS la création du RAID 1 / LVM / montage de /srv/backup :
+#   - name: Planification des sauvegardes (fragment exploitation)
+#     ansible.builtin.import_tasks: sauvegardes.yml
+#
+# Exigence C3 : /etc des Linux (reçus par nexus-backup-receive) + partages de SRV-FS01,
+# rétention 7 jours, état publié dans Prometheus.
+#
+# Machine     : LNX-OPS01 (10.36.13.22), VM du PC du rôle 3
+# Écrit par   : rôle 4 — Intégré dans ops par : rôle 3 — Appliqué par : le pipeline
+# Dépend de   : rôle 3 (RAID 1 + LVM + /srv/backup monté AVANT ce fragment),
+#               rôle 1 (compte AD svc-backup, OU comptes de service), rôle 2 (droits lecture de svc-backup
+#               sur Compta/Direction/Commun, export icacls quotidien à 01:45), rôle 5 (tailnet OPS01 -> FS01:445)
+# Handler requis dans roles/ops/handlers/main.yml :
+# - name: Recharger systemd
+#   ansible.builtin.systemd_service: { daemon_reload: true }
+
+- name: Paquets nécessaires (montage SMB, copie incrémentale)
+  ansible.builtin.dnf:
+    name: [cifs-utils, rsync]
+    state: present
+
+- name: Arborescence de sauvegarde
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.owner }}"
+    mode: "0750"
+  loop:
+    - { path: /srv/backup/etc, owner: nexus-backup }
+    - { path: /srv/backup/fs01, owner: root }
+    - { path: /etc/nexus-backup, owner: root }
+    - { path: /mnt/nexus-fs01, owner: root }
+  loop_control:
+    label: "{{ item.path }}"
+
+- name: Identifiants du compte AD de sauvegarde (depuis le coffre, lisible par root seul)
+  ansible.builtin.copy:
+    dest: /etc/nexus-backup/fs01.cred
+    owner: root
+    group: root
+    mode: "0600"
+    content: |
+      username={{ vault_fs01_backup_user }}
+      password={{ vault_fs01_backup_password }}
+      domain={{ nexus_domain | upper }}
+  no_log: true
+
+- name: Script de sauvegarde des partages SRV-FS01
+  ansible.builtin.template:
+    src: nexus-backup-fs01.sh.j2
+    dest: /usr/local/sbin/nexus-backup-fs01
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Script de maintenance (rétention + métriques)
+  ansible.builtin.template:
+    src: nexus-backup-maintenance.sh.j2
+    dest: /usr/local/sbin/nexus-backup-maintenance
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Unités systemd des sauvegardes
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    owner: root
+    group: root
+    mode: "0644"
+    content: "{{ item.content }}"
+  loop:
+    - name: nexus-backup-fs01.service
+      content: |
+        # Géré par Ansible — sauvegarde des partages de SRV-FS01 (exigence C3)
+        [Unit]
+        Description=Sauvegarde des partages Compta, Direction, Commun de SRV-FS01
+        Wants=network-online.target
+        After=network-online.target srv-backup.mount
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/nexus-backup-fs01
+        ExecStartPost=/usr/local/sbin/nexus-backup-maintenance
+        Nice=10
+        IOSchedulingClass=idle
+    - name: nexus-backup-fs01.timer
+      content: |
+        [Unit]
+        Description=Planification quotidienne (02:00) de la sauvegarde SRV-FS01
+        [Timer]
+        OnCalendar=*-*-* 02:00:00
+        Persistent=true
+        [Install]
+        WantedBy=timers.target
+    - name: nexus-backup-maintenance.service
+      content: |
+        [Unit]
+        Description=Rétention des sauvegardes et publication des métriques
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/nexus-backup-maintenance
+    - name: nexus-backup-maintenance.timer
+      content: |
+        [Unit]
+        Description=Maintenance des sauvegardes toutes les 30 minutes
+        [Timer]
+        OnBootSec=5min
+        OnUnitActiveSec=30min
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Recharger systemd
+
+- name: Minuteries de sauvegarde actives
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop:
+    - nexus-backup-fs01.timer
+    - nexus-backup-maintenance.timer

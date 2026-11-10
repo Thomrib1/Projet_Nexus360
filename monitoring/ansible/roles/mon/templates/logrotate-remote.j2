@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+# Rotation quotidienne des journaux reçus, conservation {{ rsyslog_remote_rotate_days }} jours, compression.
+{{ rsyslog_remote_dir }}/*/*.log {
+    daily
+    rotate {{ rsyslog_remote_rotate_days }}
+    dateext
+    compress
+    delaycompress
+    missingok
+    notifempty
+    sharedscripts
+    postrotate
+        /usr/bin/systemctl kill -s HUP rsyslog.service >/dev/null 2>&1 || true
+    endscript
+}

@@ -1,0 +1,113 @@
+# Tests unitaires des règles d'alerte (exécutés par le pipeline) :
+#   promtool test rules tests/prometheus/alertes_test.yml
+# On simule des séries temporelles et on vérifie qu'une alerte se déclenche (ou pas) au bon moment.
+rule_files:
+  - ../../ansible/roles/mon/files/rules/nexus360-alertes.yml
+
+evaluation_interval: 15s
+
+tests:
+  # 1. Machine injoignable : pas d'alerte à 30 s (for: 1m), alerte à 2 min
+  - interval: 15s
+    input_series:
+      - series: 'up{job="linux", instance="lnx-web01"}'
+        values: '0x10'
+      - series: 'up{job="linux", instance="lnx-ops01"}'
+        values: '1x10'
+    alert_rule_test:
+      - eval_time: 30s
+        alertname: InstanceDown
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: InstanceDown
+        exp_alerts:
+          - exp_labels: { severity: critical, job: linux, instance: lnx-web01 }
+            exp_annotations:
+              summary: "lnx-web01 ne répond plus"
+              description: "L'agent de supervision de lnx-web01 (linux) est injoignable depuis plus d'une minute : machine éteinte, réseau coupé ou agent arrêté."
+
+  # 2. Service Windows critique arrêté (DHCP sur SRV-DC02)
+  - interval: 15s
+    input_series:
+      - series: 'windows_service_state{job="windows", instance="srv-dc02", name="dhcpserver", state="running"}'
+        values: '1 1 0x10'
+      - series: 'windows_service_state{job="windows", instance="srv-dc01", name="dhcpserver", state="running"}'
+        values: '1x12'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: WindowsServiceCritiqueArrete
+        exp_alerts:
+          - exp_labels: { severity: critical, job: windows, instance: srv-dc02, name: dhcpserver, state: running }
+            exp_annotations:
+              summary: "Service Windows dhcpserver arrêté sur srv-dc02"
+              description: "Le service critique dhcpserver n'est plus en état Running sur srv-dc02 depuis 1 minute."
+
+  # 3. Disque à 10 % libre => alerte ; disque à 50 % => rien
+  - interval: 1m
+    input_series:
+      - series: 'node_filesystem_avail_bytes{instance="lnx-ops01", mountpoint="/srv/backup", fstype="xfs"}'
+        values: '10x5'
+      - series: 'node_filesystem_size_bytes{instance="lnx-ops01", mountpoint="/srv/backup", fstype="xfs"}'
+        values: '100x5'
+      - series: 'node_filesystem_avail_bytes{instance="lnx-ops01", mountpoint="/", fstype="xfs"}'
+        values: '50x5'
+      - series: 'node_filesystem_size_bytes{instance="lnx-ops01", mountpoint="/", fstype="xfs"}'
+        values: '100x5'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: EspaceDisqueFaible
+        exp_alerts:
+          - exp_labels: { severity: warning, instance: lnx-ops01, mountpoint: /srv/backup, fstype: xfs }
+            exp_annotations:
+              summary: "Disque /srv/backup presque plein sur lnx-ops01"
+              description: "Il reste 10.0 % d'espace libre sur /srv/backup."
+
+  # 4. Sauvegarde : dernière réussite il y a 30 h => alerte
+  - interval: 1m
+    input_series:
+      # valeur = horodatage de la dernière réussite ; à t=0 l'horloge vaut 0, on simule une sauvegarde à -30 h
+      - series: 'nexus_backup_last_success_timestamp_seconds{instance="lnx-ops01", source="lnx-web01", type="etc"}'
+        values: '-108000x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: SauvegardeTropAncienne
+        exp_alerts:
+          - exp_labels: { severity: warning, instance: lnx-ops01, source: lnx-web01, type: etc }
+            exp_annotations:
+              summary: "Sauvegarde etc de lnx-web01 trop ancienne"
+              description: "Dernière sauvegarde réussie il y a 1d 6h 6m 0s (attendu : quotidienne)."
+
+  # 5. RAID 1 de LNX-OPS01 : un disque en panne
+  - interval: 15s
+    input_series:
+      - series: 'node_md_disks{instance="lnx-ops01", device="md0", state="failed"}'
+        values: '0 0 1x10'
+      - series: 'node_md_disks{instance="lnx-ops01", device="md0", state="active"}'
+        values: '2 2 1x10'
+      - series: 'node_md_disks_required{instance="lnx-ops01", device="md0"}'
+        values: '2x12'
+    alert_rule_test:
+      - eval_time: 15s
+        alertname: RaidDegrade
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: RaidDegrade
+        exp_alerts:
+          - exp_labels: { severity: critical, instance: lnx-ops01, device: md0 }
+            exp_annotations:
+              summary: "RAID md0 dégradé sur lnx-ops01"
+              description: "Un disque du miroir md0 est en panne ou absent : la redondance est perdue (exigence A4)."
+
+  # 6. Intranet : sonde HTTP en échec
+  - interval: 15s
+    input_series:
+      - series: 'probe_success{job="blackbox_http", instance="http://intranet.ad.nexus360.test"}'
+        values: '1 0x10'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: IntranetIndisponible
+        exp_alerts:
+          - exp_labels: { severity: critical, job: blackbox_http, instance: "http://intranet.ad.nexus360.test" }
+            exp_annotations:
+              summary: "L'intranet ne répond plus correctement (http://intranet.ad.nexus360.test)"
+              description: "La sonde HTTP échoue depuis 1 minute : nginx arrêté, DNS intranet cassé, ou page sans identifiant de version."

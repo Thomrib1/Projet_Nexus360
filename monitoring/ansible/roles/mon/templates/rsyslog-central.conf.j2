@@ -1,0 +1,25 @@
+# {{ ansible_managed }}
+# Réception des journaux de tous les Linux en TCP/{{ rsyslog_central_port }}.
+# Chaque machine a son répertoire : {{ rsyslog_remote_dir }}/<machine>/<programme>.log
+# Les messages distants passent par un ruleset dédié : ils ne polluent pas /var/log/messages de MON01.
+
+module(load="imtcp" MaxSessions="200")
+
+template(name="NexusRemoteFile" type="string"
+         string="{{ rsyslog_remote_dir }}/%HOSTNAME:::secpath-replace%/%PROGRAMNAME:::secpath-replace%.log")
+
+# Fichier de synthèse "sécurité" toutes machines confondues (authpriv) : pratique pour le diagnostic D3
+template(name="NexusRemoteAuth" type="string"
+         string="{{ rsyslog_remote_dir }}/_securite/auth.log")
+
+ruleset(name="nexus_remote") {
+    if ($syslogfacility-text == "authpriv" or $syslogfacility-text == "auth") then {
+        action(type="omfile" dynaFile="NexusRemoteAuth"
+               dirCreateMode="0750" fileCreateMode="0640")
+    }
+    action(type="omfile" dynaFile="NexusRemoteFile"
+           dirCreateMode="0750" fileCreateMode="0640" dynaFileCacheSize="200")
+    stop
+}
+
+input(type="imtcp" port="{{ rsyslog_central_port }}" ruleset="nexus_remote")

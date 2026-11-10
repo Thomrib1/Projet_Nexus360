@@ -1,0 +1,30 @@
+---
+# Pare-feu réduit au nécessaire (exigence B5) : chaque port n'est ouvert qu'aux sources qui en ont besoin.
+- name: Firewalld installé et actif
+  ansible.builtin.systemd_service:
+    name: firewalld
+    state: started
+    enabled: true
+
+- name: Réception rsyslog depuis le réseau du labo uniquement
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ nexus_lab_network }}" port port="{{ rsyslog_central_port }}" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+
+- name: Grafana (3000) depuis SRV-MGT01 et le bastion
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ item }}" port port="3000" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ mon_grafana_allowed_sources }}"
+
+- name: API Prometheus (9090) et Alertmanager (9093) pour l'administration
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ item.0 }}" port port="{{ item.1 }}" protocol="tcp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ mon_admin_allowed_sources | product(['9090', '9093']) | list }}"

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Géré par Ansible — réception d'une archive de sauvegarde sur LNX-OPS01.
+# Appelé UNIQUEMENT via la commande forcée d'authorized_keys :
+#   command="/usr/local/sbin/nexus-backup-receive etc lnx-web01",from="10.36.13.21",restrict
+# Le type et la machine sont donc imposés par la clé, pas par le client : une machine
+# compromise ne peut ni lire les sauvegardes, ni écraser celles d'une autre machine.
+set -euo pipefail
+umask 027
+
+type="${1:-}"; host="${2:-}"
+[[ "$type" =~ ^(etc)$ ]]          || { echo "type refusé" >&2; exit 2; }
+[[ "$host" =~ ^[a-z0-9-]{1,32}$ ]] || { echo "machine refusée" >&2; exit 2; }
+
+dest_dir="/srv/backup/${type}/${host}"
+mkdir -p "$dest_dir"
+tmp="$(mktemp "${dest_dir}/.reception.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+
+# 2 Go maximum par archive (protection contre le remplissage du volume)
+head -c 2G > "$tmp"
+gzip -t "$tmp"                                   # archive intègre ?
+final="${dest_dir}/${host}-${type}-$(date +%F_%H%M%S).tar.gz"
+mv "$tmp" "$final"
+trap - EXIT
+echo "OK ${final} ($(stat -c %s "$final") octets)"

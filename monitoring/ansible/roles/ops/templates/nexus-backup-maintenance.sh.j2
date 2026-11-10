@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# 1. Rétention : supprime ce qui a plus de {{ backup_retention_days }} jours
+#    (sans JAMAIS supprimer la dernière sauvegarde réussie, même si elle est vieille).
+# 2. Publie pour Prometheus l'horodatage de la dernière sauvegarde réussie de CHAQUE source attendue
+#    (une source jamais sauvegardée apparaît avec 0 => alerte SauvegardeTropAncienne immédiate).
+set -euo pipefail
+RET={{ backup_retention_days }}
+METRIC="{{ node_exporter_textfile_dir }}/nexus_backup_age.prom"
+
+# --- Rétention /etc : par machine, on garde toujours l'archive la plus récente
+for dir in /srv/backup/etc/*/; do
+  [[ -d "$dir" ]] || continue
+  newest="$(find "$dir" -maxdepth 1 -name "*.tar.gz" -printf "%T@ %p\n" | sort -n | tail -1 | cut -d" " -f2-)"
+  find "$dir" -maxdepth 1 -type f -name '*.tar.gz' -mtime +"$((RET - 1))" \
+       ! -path "$newest" -print -delete | sed 's/^/purge: /' | logger -t nexus-backup
+done
+
+# --- Rétention partages : instantanés datés, sauf celui pointé par "latest"
+latest_target="$(readlink -f /srv/backup/fs01/latest 2>/dev/null || true)"
+find /srv/backup/fs01 -mindepth 1 -maxdepth 1 -type d -regextype posix-extended \
+     -regex '.*/[0-9]{4}-[0-9]{2}-[0-9]{2}' -mtime +"$((RET - 1))" ! -path "${latest_target:-/nonexistent}" \
+     -print -exec rm -rf {} + | sed 's/^/purge: /' | logger -t nexus-backup
+
+# --- Métriques
+fs_last=0
+[[ -n "$latest_target" && -d "$latest_target" ]] && fs_last="$(stat -c %Y "$latest_target")"
+
+tmp="$(mktemp "${METRIC}.XXXX")"
+{
+  echo '# HELP nexus_backup_last_success_timestamp_seconds Horodatage de la dernière sauvegarde réussie.'
+  echo '# TYPE nexus_backup_last_success_timestamp_seconds gauge'
+  echo '# HELP nexus_backup_archives_count Nombre de versions conservées.'
+  echo '# TYPE nexus_backup_archives_count gauge'
+{% for h in groups['linux'] | sort %}
+  last="$(find /srv/backup/etc/{{ h }} -name '*.tar.gz' -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)"
+  count="$(find /srv/backup/etc/{{ h }} -name '*.tar.gz' 2>/dev/null | wc -l)"
+  echo "nexus_backup_last_success_timestamp_seconds{type=\"etc\",source=\"{{ h }}\"} ${last:-0}"
+  echo "nexus_backup_archives_count{type=\"etc\",source=\"{{ h }}\"} ${count}"
+{% endfor %}
+  count="$(find /srv/backup/fs01 -mindepth 1 -maxdepth 1 -type d -name '20*' | wc -l)"
+  echo "nexus_backup_last_success_timestamp_seconds{type=\"partage\",source=\"fs01\"} ${fs_last}"
+  echo "nexus_backup_archives_count{type=\"partage\",source=\"fs01\"} ${count}"
+} > "$tmp"
+chmod 0644 "$tmp" && mv "$tmp" "$METRIC"

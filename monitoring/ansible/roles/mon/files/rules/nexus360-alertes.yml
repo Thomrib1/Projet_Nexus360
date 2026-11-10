@@ -1,0 +1,147 @@
+# Règles d'alerte Nexus360 — exigence C2 (au moins 5 règles, dont une sur un service Windows critique).
+# Chaque règle a : un seuil justifié, une durée "for" (évite les faux positifs), une sévérité,
+# un résumé lisible et la procédure de déclenchement volontaire (scripts/test-alertes.sh).
+# Testées unitairement par : promtool test rules tests/prometheus/alertes_test.yml
+groups:
+  - name: disponibilite
+    rules:
+      - alert: InstanceDown
+        expr: up{job=~"linux|windows"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} ne répond plus"
+          description: "L'agent de supervision de {{ $labels.instance }} ({{ $labels.job }}) est injoignable depuis plus d'une minute : machine éteinte, réseau coupé ou agent arrêté."
+
+      - alert: WindowsServiceCritiqueArrete
+        expr: windows_service_state{state="running"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service Windows {{ $labels.name }} arrêté sur {{ $labels.instance }}"
+          description: "Le service critique {{ $labels.name }} n'est plus en état Running sur {{ $labels.instance }} depuis 1 minute."
+
+      - alert: IntranetIndisponible
+        expr: probe_success{job="blackbox_http"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "L'intranet ne répond plus correctement ({{ $labels.instance }})"
+          description: "La sonde HTTP échoue depuis 1 minute : nginx arrêté, DNS intranet cassé, ou page sans identifiant de version."
+
+      - alert: ServiceInfraInjoignable
+        expr: probe_success{job=~"blackbox_tcp|blackbox_dns"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service {{ $labels.instance }} injoignable"
+          description: "La sonde {{ $labels.job }} vers {{ $labels.instance }} échoue depuis 2 minutes."
+
+      - alert: ServiceLinuxEnEchec
+        expr: node_systemd_unit_state{state="failed"} == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Unité {{ $labels.name }} en échec sur {{ $labels.instance }}"
+          description: "systemd signale {{ $labels.name }} en état failed (le redémarrage automatique n'a pas suffi). Voir : journalctl -u {{ $labels.name }}"
+
+  - name: ressources
+    rules:
+      - alert: EspaceDisqueFaible
+        expr: |
+          (
+            node_filesystem_avail_bytes{fstype=~"xfs|ext4"}
+            / node_filesystem_size_bytes{fstype=~"xfs|ext4"}
+          ) * 100 < 15
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disque {{ $labels.mountpoint }} presque plein sur {{ $labels.instance }}"
+          description: "Il reste {{ $value | printf \"%.1f\" }} % d'espace libre sur {{ $labels.mountpoint }}."
+
+      - alert: EspaceDisqueFaibleWindows
+        expr: |
+          (
+            windows_logical_disk_free_bytes{volume!~"HarddiskVolume.*"}
+            / windows_logical_disk_size_bytes{volume!~"HarddiskVolume.*"}
+          ) * 100 < 15
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Volume {{ $labels.volume }} presque plein sur {{ $labels.instance }}"
+          description: "Il reste {{ $value | printf \"%.1f\" }} % d'espace libre."
+
+      - alert: CPUSature
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU saturé sur {{ $labels.instance }}"
+          description: "Utilisation CPU à {{ $value | printf \"%.0f\" }} % depuis 5 minutes."
+
+      - alert: MemoireFaible
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mémoire disponible faible sur {{ $labels.instance }}"
+          description: "Il reste {{ $value | printf \"%.1f\" }} % de mémoire disponible."
+
+  - name: stockage-et-sauvegardes
+    rules:
+      - alert: RaidDegrade
+        # disques requis - disques actifs > 0  => un membre du miroir est en panne ou retiré
+        expr: (node_md_disks_required - ignoring(state) node_md_disks{state="active"}) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RAID {{ $labels.device }} dégradé sur {{ $labels.instance }}"
+          description: "Un disque du miroir {{ $labels.device }} est en panne ou absent : la redondance est perdue (exigence A4)."
+
+      - alert: SauvegardeTropAncienne
+        expr: time() - nexus_backup_last_success_timestamp_seconds > 26 * 3600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sauvegarde {{ $labels.type }} de {{ $labels.source }} trop ancienne"
+          description: "Dernière sauvegarde réussie il y a {{ $value | humanizeDuration }} (attendu : quotidienne)."
+
+      - alert: SauvegardeEnEchec
+        expr: nexus_backup_last_status != 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Échec de la sauvegarde {{ $labels.type }} de {{ $labels.source }}"
+          description: "Le dernier passage du script de sauvegarde a retourné le code {{ $value }}. Voir journalctl -u nexus-backup-*."
+
+  - name: temps-et-journaux
+    rules:
+      - alert: DeriveHorloge
+        expr: abs(node_timex_offset_seconds) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Horloge décalée sur {{ $labels.instance }}"
+          description: "Décalage de {{ $value | printf \"%.2f\" }} s par rapport aux DC. Kerberos refuse au-delà de 5 min : à corriger avant."
+
+      - alert: HorlogeNonSynchronisee
+        expr: node_timex_sync_status == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.instance }} n'est plus synchronisé en heure"
+          description: "chronyd ne se synchronise plus sur les DC depuis 10 minutes (chronyc sources -v)."

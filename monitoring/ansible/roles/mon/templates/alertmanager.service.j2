@@ -1,0 +1,26 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Alertmanager - routage des alertes Nexus360
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=alertmanager
+Group=alertmanager
+ExecStart=/usr/local/bin/alertmanager \
+  --config.file={{ alertmanager_config_dir }}/alertmanager.yml \
+  --storage.path={{ alertmanager_data_dir }} \
+  --web.listen-address=0.0.0.0:9093 \
+  --cluster.listen-address= \
+  --web.external-url=http://lnx-mon01.{{ nexus_domain }}:9093/
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

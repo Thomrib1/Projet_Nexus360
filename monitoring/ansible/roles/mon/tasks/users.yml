@@ -1,0 +1,26 @@
+---
+- name: Utilisateurs système sans shell pour chaque composant
+  ansible.builtin.user:
+    name: "{{ item }}"
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+  loop: [prometheus, alertmanager, blackbox]
+
+- name: Répertoires de configuration et de données
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.owner }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ prometheus_config_dir }}", owner: root, mode: "0755" }
+    - { path: "{{ prometheus_config_dir }}/rules", owner: root, mode: "0755" }
+    - { path: "{{ prometheus_data_dir }}", owner: prometheus, mode: "0750" }
+    - { path: "{{ alertmanager_config_dir }}", owner: root, mode: "0755" }
+    - { path: "{{ alertmanager_data_dir }}", owner: alertmanager, mode: "0750" }
+    - { path: "{{ blackbox_config_dir }}", owner: root, mode: "0755" }
+    - { path: "{{ mon_download_dir }}", owner: root, mode: "0755" }
+  loop_control:
+    label: "{{ item.path }}"

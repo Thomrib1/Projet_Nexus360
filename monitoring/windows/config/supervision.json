@@ -1,0 +1,15 @@
+{
+  "_commentaire": "Données pilotant Install-WindowsExporter.ps1 . Ajouter un serveur = ajouter une entrée. niveau T0 = lancé par le rôle 1 sur le DC lui-même.",
+  "version": "0.31.3",
+  "source_msi": "\\\\srv-mgt01.ad.nexus360.test\\Deploiement$\\windows_exporter\\windows_exporter-0.31.3-amd64.msi",
+  "source_msi_t0": "\\\\ad.nexus360.test\\NETLOGON\\windows_exporter\\windows_exporter-0.31.3-amd64.msi",
+  "port": 9182,
+  "serveur_supervision": "10.36.14.23",
+  "collecteurs": "cpu,logical_disk,memory,net,os,system,service,time",
+  "serveurs": [
+    { "nom": "SRV-DC01",  "niveau": "T0", "pc": "rôle 1", "services": ["NTDS", "DNS", "DHCPServer", "Kdc", "Netlogon", "W32Time"] },
+    { "nom": "SRV-DC02",  "niveau": "T0", "pc": "rôle 4", "services": ["NTDS", "DNS", "DHCPServer", "Kdc", "Netlogon", "W32Time"] },
+    { "nom": "SRV-FS01",  "niveau": "T1", "pc": "rôle 2", "services": ["LanmanServer", "SrmSvc"] },
+    { "nom": "SRV-MGT01", "niveau": "T1", "pc": "rôle 2", "services": ["WsusService", "Wecsvc", "W3SVC"] }
+  ]
+}
