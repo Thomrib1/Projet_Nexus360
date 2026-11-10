@@ -1,0 +1,8 @@
+{
+  "Port": 8530,
+  "Languages": ["fr", "en"],
+  "ProductPatterns": ["^Windows 11$", "Server Operating System-24H2"],
+  "ClassificationPatterns": ["Critical|critique", "Security|curit"],
+  "Groups": ["Anneau-Pilote", "Anneau-General"],
+  "SynchronizeAutomatically": false
+}
