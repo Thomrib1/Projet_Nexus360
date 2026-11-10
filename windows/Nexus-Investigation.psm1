@@ -3,8 +3,7 @@
     Boite a outils d'investigation PowerShell (D2) : une fonction par type d'evenement.
 .DESCRIPTION
     Lit les journaux Security et System, en local ou a distance (-ComputerName).
-    Necessite une session administrateur. A distance : WinRM et "Gestion a distance du
-    journal d'evenements" ouverts sur la cible.
+    Necessite une session administrateur.
 #>
 
 function Get-NxEvents {
@@ -30,15 +29,39 @@ function ConvertTo-NxData {
     $h
 }
 
+function Resolve-NxSid {
+    param([string]$Sid)
+    if (-not $Sid -or $Sid -eq '-') { return $null }
+    try {
+        (New-Object System.Security.Principal.SecurityIdentifier $Sid).Translate([System.Security.Principal.NTAccount]).Value
+    } catch { $Sid }
+}
+
+$script:NxSubStatus = @{
+    '0xc0000064' = 'compte inexistant'
+    '0xc000006a' = 'mot de passe incorrect'
+    '0xc000006d' = 'echec d''authentification (generique)'
+    '0xc000006e' = 'restriction de compte'
+    '0xc000006f' = 'connexion hors horaires autorises'
+    '0xc0000070' = 'poste non autorise pour ce compte'
+    '0xc0000071' = 'mot de passe expire'
+    '0xc0000072' = 'compte desactive'
+    '0xc0000193' = 'compte expire'
+    '0xc0000234' = 'compte verrouille'
+}
+
 function Get-NxFailedLogons {
-    <# 4625 : echecs d'authentification #>
+    <# 4625 : echecs d'authentification, avec la raison traduite #>
     param([datetime]$Since = (Get-Date).AddDays(-1), [string]$ComputerName)
     Get-NxEvents -LogName Security -Id 4625 -Since $Since -ComputerName $ComputerName | ForEach-Object {
         $d = ConvertTo-NxData $_
+        $key = "$($d.SubStatus)".ToLower()
+        $raison = if ($script:NxSubStatus.ContainsKey($key)) { $script:NxSubStatus[$key] } else { 'autre' }
         [pscustomobject]@{
             Heure = $_.TimeCreated; Machine = $_.MachineName
             Compte = $d.TargetUserName; Domaine = $d.TargetDomainName
-            Source = $d.IpAddress; TypeOuverture = $d.LogonType; SousStatut = $d.SubStatus
+            Source = $d.IpAddress; TypeOuverture = $d.LogonType
+            SousStatut = $d.SubStatus; Raison = $raison
         }
     }
 }
@@ -72,9 +95,10 @@ function Get-NxGroupAdditions {
     param([datetime]$Since = (Get-Date).AddDays(-7), [string]$ComputerName)
     Get-NxEvents -LogName Security -Id 4728,4732,4756 -Since $Since -ComputerName $ComputerName | ForEach-Object {
         $d = ConvertTo-NxData $_
+        $membre = if ($d.MemberName -and $d.MemberName -ne '-') { $d.MemberName } else { Resolve-NxSid $d.MemberSid }
         [pscustomobject]@{
             Heure = $_.TimeCreated; Machine = $_.MachineName; Id = $_.Id
-            Membre = $d.MemberName; Groupe = $d.TargetUserName; AjoutePar = $d.SubjectUserName
+            Membre = $membre; Groupe = $d.TargetUserName; AjoutePar = $d.SubjectUserName
         }
     }
 }
@@ -108,11 +132,11 @@ function Export-NxReport {
     )
     New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
     $jobs = [ordered]@{
-        'echecs-authentification' = { Get-NxFailedLogons       -Since $Since -ComputerName $ComputerName }
-        'verrouillages'           = { Get-NxLockouts           -Since $Since -ComputerName $ComputerName }
-        'creations-comptes'       = { Get-NxAccountCreations   -Since $Since -ComputerName $ComputerName }
-        'ajouts-groupes'          = { Get-NxGroupAdditions     -Since $Since -ComputerName $ComputerName }
-        'services-installes'      = { Get-NxInstalledServices  -Since $Since -ComputerName $ComputerName }
+        'echecs-authentification' = { Get-NxFailedLogons        -Since $Since -ComputerName $ComputerName }
+        'verrouillages'           = { Get-NxLockouts            -Since $Since -ComputerName $ComputerName }
+        'creations-comptes'       = { Get-NxAccountCreations    -Since $Since -ComputerName $ComputerName }
+        'ajouts-groupes'          = { Get-NxGroupAdditions      -Since $Since -ComputerName $ComputerName }
+        'services-installes'      = { Get-NxInstalledServices   -Since $Since -ComputerName $ComputerName }
         'arrets-inattendus'       = { Get-NxUnexpectedShutdowns -Since $Since -ComputerName $ComputerName }
     }
     foreach ($name in $jobs.Keys) {
