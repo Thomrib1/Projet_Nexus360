@@ -1,0 +1,17 @@
+---
+- name: Paquets
+  ansible.builtin.dnf: {name: [firewalld, dhcp-relay], state: present}
+
+- name: Routage IPv4/IPv6 (Tailscale subnet router)
+  ansible.posix.sysctl: {name: "{{ item }}", value: "1", sysctl_set: true, reload: true}
+  loop: [net.ipv4.ip_forward, net.ipv6.conf.all.forwarding]
+
+- name: Masquerade vers Internet uniquement (pas de SNAT vers le tailnet)
+  ansible.builtin.command: firewall-cmd --permanent --zone=external --add-masquerade
+  changed_when: false
+
+- name: Ajustement MSS (clamp)
+  ansible.builtin.command: >
+    firewall-cmd --permanent --direct --add-rule ipv4 mangle FORWARD 0
+    -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+  changed_when: false

@@ -1,0 +1,45 @@
+---
+- name: nginx installé
+  ansible.builtin.dnf: {name: nginx, state: present}
+
+- name: Page intranet (affiche le commit déployé)
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: /usr/share/nginx/html/index.html
+    mode: "0644"
+    setype: httpd_sys_content_t
+
+- name: vhost intranet
+  ansible.builtin.template:
+    src: intranet.conf.j2
+    dest: /etc/nginx/conf.d/intranet.conf
+    mode: "0644"
+  notify: reload nginx
+
+- name: Création du répertoire drop-in
+  ansible.builtin.file: {path: /etc/systemd/system/nginx.service.d, state: directory, mode: "0755"}
+
+- name: Redémarrage automatique (C1)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/nginx.service.d/restart.conf
+    mode: "0644"
+    content: |
+      [Service]
+      Restart=always
+      RestartSec=5
+  notify: daemon-reload
+
+- name: nginx démarré
+  ansible.builtin.systemd: {name: nginx, enabled: true, state: started}
+
+- name: Pare-feu http
+  ansible.posix.firewalld: {service: http, permanent: true, immediate: true, state: enabled}
+
+- name: SSH uniquement depuis le bastion (B5)
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ bastion_ip }}" service name="ssh" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+- name: Retrait de ssh ouvert à tous
+  ansible.posix.firewalld: {service: ssh, permanent: true, immediate: true, state: disabled}

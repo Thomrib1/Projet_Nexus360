@@ -1,0 +1,9 @@
+   {
+     "NetBIOSDomain": "AD",
+     "Root": "E:\\Partages",
+     "Shares": [
+       { "Name": "Compta",    "Modify": "DL_Compta_RW",    "Read": "DL_Compta_R",    "QuotaGB": 5 },
+       { "Name": "Direction", "Modify": "DL_Direction_RW", "Read": "DL_Direction_R", "QuotaGB": 5 },
+       { "Name": "Commun",    "Modify": "DL_Commun_RW",    "Read": "DL_Commun_R",    "QuotaGB": 6 }
+     ]
+   }

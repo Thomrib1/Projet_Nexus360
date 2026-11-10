@@ -1,0 +1,18 @@
+[Unit]
+Description=Prometheus node_exporter (géré par Ansible)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=node_exporter
+Group=node_exporter
+ExecStart=/usr/local/bin/node_exporter --web.listen-address=:{{ node_exporter_port }}
+# C1 : redémarrage automatique en cas de plantage
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target

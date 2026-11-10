@@ -1,0 +1,14 @@
+#!/bin/bash
+# Géré par Ansible. Sauvegarde /etc des Linux vers LNX-OPS01, rétention {{ backup_retention_days }} jours.
+# tar rend 1 quand un fichier change pendant la lecture (simple avertissement) : on l'accepte, pas les codes >= 2.
+set -uo pipefail
+DEST=/srv/backup/etc
+DATE=$(date +%F)
+mkdir -p "$DEST"
+rc=0
+sudo /usr/bin/tar czf - /etc > "$DEST/lnx-ops01-$DATE.tgz" || { r=$?; [ "$r" -eq 1 ] || { echo "ERREUR lnx-ops01 (code $r)" >&2; rc=1; }; }
+{% for s in backup_sources %}
+ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new {{ backup_remote_user }}@{{ s.ip }} "sudo /usr/bin/tar czf - /etc" > "$DEST/{{ s.host }}-$DATE.tgz" || { r=$?; [ "$r" -eq 1 ] || { echo "ERREUR {{ s.host }} (code $r)" >&2; rc=1; }; }
+{% endfor %}
+find "$DEST" -name '*.tgz' -mtime +{{ backup_retention_days - 1 }} -delete
+exit $rc

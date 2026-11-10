@@ -1,0 +1,89 @@
+---
+- name: Paquets stockage et sauvegarde
+  ansible.builtin.dnf:
+    name: [mdadm, lvm2, xfsprogs, rsync, quota, tar]
+    state: present
+
+- name: RAID 1 logiciel
+  ansible.builtin.command:
+    cmd: "mdadm --create /dev/md0 --level=1 --raid-devices=2 {{ ops_raid_devices | join(' ') }} --run"
+    creates: /dev/md0
+
+- name: Groupe de volumes
+  community.general.lvg: {vg: "{{ ops_vg }}", pvs: /dev/md0}
+
+- name: Volumes logiques
+  community.general.lvol: {vg: "{{ ops_vg }}", lv: "{{ item.lv }}", size: "{{ item.size }}"}
+  loop: "{{ ops_volumes }}"
+
+- name: Systèmes de fichiers XFS
+  community.general.filesystem: {fstype: xfs, dev: "/dev/{{ ops_vg }}/{{ item.lv }}"}
+  loop: "{{ ops_volumes }}"
+
+- name: Montage avec quotas XFS (A4)
+  ansible.posix.mount:
+    path: "/srv/{{ item.name }}"
+    src: "/dev/mapper/{{ ops_vg }}-{{ item.lv }}"
+    fstype: xfs
+    opts: "{{ ops_mount_opts }}"
+    state: mounted
+  loop: "{{ ops_volumes }}"
+
+- name: Compte de sauvegarde (avec sa clé SSH)
+  ansible.builtin.user:
+    name: backup
+    shell: /bin/bash
+    home: /srv/backup/home
+    generate_ssh_key: true
+    ssh_key_type: ed25519
+    ssh_key_comment: backup@lnx-ops01
+
+- name: sudo limité pour le compte backup (tar de /etc uniquement)
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/backup
+    owner: root
+    group: root
+    mode: "0440"
+    content: "backup ALL=(root) NOPASSWD: /usr/bin/tar czf - /etc\n"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Dossier des sauvegardes /etc
+  ansible.builtin.file:
+    path: /srv/backup/etc
+    state: directory
+    owner: backup
+    group: backup
+    mode: "0750"
+
+- name: Clé publique de backup, lisible pour déployer sur les cibles
+  ansible.builtin.copy:
+    src: /srv/backup/home/.ssh/id_ed25519.pub
+    dest: /srv/backup/backup_key.pub
+    remote_src: true
+    mode: "0644"
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Script de sauvegarde (/etc Linux)
+  ansible.builtin.template:
+    src: backup-etc.sh.j2
+    dest: /usr/local/sbin/backup-etc.sh
+    owner: root
+    group: backup
+    mode: "0750"
+
+- name: Timer quotidien
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.n }}"
+    mode: "0644"
+    content: "{{ item.c }}"
+  loop:
+    - n: backup-etc.service
+      c: "[Unit]\nDescription=Sauvegarde /etc\n[Service]\nType=oneshot\nUser=backup\nExecStart=/usr/local/sbin/backup-etc.sh\n"
+    - n: backup-etc.timer
+      c: "[Unit]\nDescription=Sauvegarde quotidienne\n[Timer]\nOnCalendar=*-*-* 02:00:00\nPersistent=true\n[Install]\nWantedBy=timers.target\n"
+
+- name: Timer actif
+  ansible.builtin.systemd: {name: backup-etc.timer, enabled: true, state: started, daemon_reload: true}
+
+- name: Pare-feu ssh (bastion)
+  ansible.posix.firewalld: {service: ssh, permanent: true, immediate: true, state: enabled}

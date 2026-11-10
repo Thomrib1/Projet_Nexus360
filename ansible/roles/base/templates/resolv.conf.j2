@@ -1,0 +1,5 @@
+# Géré par Ansible
+search {{ domain }}
+{% for d in dc_dns %}
+nameserver {{ d }}
+{% endfor %}

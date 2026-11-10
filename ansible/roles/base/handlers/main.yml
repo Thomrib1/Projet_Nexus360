@@ -1,0 +1,4 @@
+---
+- {name: restart chronyd, ansible.builtin.systemd: {name: chronyd, state: restarted}}
+- {name: restart sssd, ansible.builtin.systemd: {name: sssd, state: restarted, enabled: true}}
+- {name: restart rsyslog, ansible.builtin.systemd: {name: rsyslog, state: restarted}}

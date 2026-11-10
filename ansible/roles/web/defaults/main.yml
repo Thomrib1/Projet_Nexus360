@@ -1,0 +1,2 @@
+---
+web_commit: "{{ lookup('env', 'GIT_COMMIT') | default('inconnu', true) }}"

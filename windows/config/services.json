@@ -1,0 +1,8 @@
+﻿{
+  "resetSeconds": 86400,
+  "delaysMs": [5000, 10000, 30000],
+  "servers": {
+    "SRV-FS01":  ["LanmanServer", "SrmSvc", "windows_exporter"],
+    "SRV-MGT01": ["WsusService", "W3SVC", "Wecsvc", "windows_exporter"]
+  }
+}

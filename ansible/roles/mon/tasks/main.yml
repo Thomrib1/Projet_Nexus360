@@ -1,0 +1,59 @@
+---
+- name: Paquets
+  ansible.builtin.dnf: {name: [rsyslog, prometheus2, grafana, node_exporter], state: present}
+  # Paquets fournis par le dépôt interne / EPEL ; voir docs/DAT.md §Choix techniques
+
+- name: rsyslog écoute en TCP, un fichier par machine (D1)
+  ansible.builtin.copy:
+    dest: /etc/rsyslog.d/10-central.conf
+    mode: "0644"
+    content: |
+      module(load="imtcp")
+      input(type="imtcp" port="514")
+      template(name="PerHost" type="string" string="/var/log/central/%HOSTNAME%/%programname%.log")
+      if $fromhost-ip != '127.0.0.1' then { action(type="omfile" dynaFile="PerHost") stop }
+  notify: restart rsyslog
+
+- name: Rotation des journaux centralisés
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/central
+    mode: "0644"
+    content: |
+      /var/log/central/*/*.log {
+          daily
+          rotate 14
+          compress
+          missingok
+          notifempty
+          sharedscripts
+          postrotate
+              /usr/bin/systemctl kill -s HUP rsyslog.service >/dev/null 2>&1 || true
+          endscript
+      }
+
+- name: Configuration Prometheus
+  ansible.builtin.template: {src: prometheus.yml.j2, dest: /etc/prometheus/prometheus.yml, mode: "0644"}
+  notify: restart prometheus
+
+- name: Règles d'alerte (source unique dans le dépôt)
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../supervision/alert.rules.yml"
+    dest: /etc/prometheus/alert.rules.yml
+    mode: "0644"
+    validate: promtool check rules %s
+  notify: restart prometheus
+
+- name: Services démarrés et auto-redémarrés (C1)
+  ansible.builtin.include_tasks: services.yml
+  loop: [prometheus, grafana-server, rsyslog, node_exporter]
+
+- name: Pare-feu
+  ansible.posix.firewalld: {port: "{{ item }}", permanent: true, immediate: true, state: enabled}
+  loop: [514/tcp, 3000/tcp, 9090/tcp]
+
+- name: SSH limité au bastion
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ bastion_ip }}" service name="ssh" accept'
+    permanent: true
+    immediate: true
+    state: enabled

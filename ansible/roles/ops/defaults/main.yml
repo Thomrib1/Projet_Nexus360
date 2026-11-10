@@ -1,0 +1,14 @@
+---
+# Disques vides réservés au RAID 1 (adapter à la machine : sdb/sdc en VM Hyper-V, nvme0n2/nvme0n3 en VMware)
+ops_raid_devices: [/dev/nvme0n2, /dev/nvme0n3]
+ops_vg: vg_data
+# Volumes logiques montés dans /srv/<name> ; le reste du VG reste libre pour agrandir
+ops_volumes:
+  - {name: backup, lv: lv_backup, size: 3g}
+  - {name: partage, lv: lv_partage, size: 1g}
+ops_mount_opts: defaults,usrquota
+backup_retention_days: 7
+# Machines dont /etc est sauvegardé par SSH (compte backup, rôle backup_target) ; à définir dans les variables du labo
+backup_sources: []
+# Compte dédié sur les machines sauvegardées (le compte "backup" existe déjà sous Ubuntu : on ne le réutilise pas)
+backup_remote_user: svc_backup

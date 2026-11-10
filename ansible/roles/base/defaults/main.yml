@@ -1,0 +1,2 @@
+---
+base_packages: [chrony, sssd, sssd-ad, realmd, oddjob-mkhomedir, adcli, policycoreutils-python-utils, rsyslog, dnf-automatic, firewalld]

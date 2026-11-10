@@ -1,0 +1,13 @@
+# Géré par Ansible : durcissement SSH (B5)
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+AllowGroups {{ ([ssh_hardening_group] + ssh_hardening_extra_groups) | join(' ') }}
+MaxAuthTries 3
+LoginGraceTime 30
+X11Forwarding no
+AllowAgentForwarding no
+ClientAliveInterval 300
+ClientAliveCountMax 2

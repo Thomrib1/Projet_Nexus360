@@ -1,0 +1,8 @@
+# Géré par Ansible
+# SSSD (fournisseur AD) donne les noms de groupes en minuscules : les règles sont écrites en minuscules.
+{% for g in sudo_full_groups %}
+%{{ g | lower }} ALL=(ALL) ALL
+{% endfor %}
+# Exploitation : liste fermée de commandes. NOEXEC empêche d'ouvrir un shell root depuis le
+# pager (less) de journalctl ou systemctl status (B2 : pas de shell root déguisé).
+%{{ sudo_restricted_group | lower }} ALL=(root) NOPASSWD:NOEXEC: {{ sudo_restricted_cmds | join(', ') }}

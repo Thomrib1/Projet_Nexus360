@@ -1,0 +1,60 @@
+---
+- name: Paquets de base
+  ansible.builtin.dnf:
+    name: "{{ base_packages }}"
+    state: present
+
+- name: DNS du domaine uniquement
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    mode: "0644"
+
+- name: chrony synchronisé sur les DC
+  ansible.builtin.template:
+    src: chrony.conf.j2
+    dest: /etc/chrony.conf
+    mode: "0644"
+  notify: restart chronyd
+
+- name: SELinux enforcing
+  ansible.posix.selinux:
+    policy: targeted
+    state: enforcing
+
+- name: sssd.conf
+  ansible.builtin.template:
+    src: sssd.conf.j2
+    dest: /etc/sssd/sssd.conf
+    mode: "0600"
+  notify: restart sssd
+
+# Durcissement SSH : fait par le rôle ssh_hardening (un seul endroit, pas de conflit).
+
+- name: sudo par groupe AD (restreint pour l'exploitation)
+  ansible.builtin.template:
+    src: sudoers.j2
+    dest: /etc/sudoers.d/nexus360
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+# Correctifs automatiques (dnf-automatic) : faits par le rôle auto_updates.
+
+- name: Journaux envoyés à LNX-MON01 (rsyslog TCP)
+  ansible.builtin.copy:
+    dest: /etc/rsyslog.d/90-forward.conf
+    mode: "0644"
+    content: |
+      *.* action(type="omfwd" target="{{ mon_ip }}" port="514" protocol="tcp"
+        action.resumeRetryCount="-1" queue.type="LinkedList" queue.filename="fwd" queue.saveOnShutdown="on")
+  when: inventory_hostname != 'lnx-mon01'
+  notify: restart rsyslog
+
+# SSH ouvert à tous sauf sur WEB01 et MON01, où il est limité au bastion (B5, rôles web et mon).
+- name: Pare-feu, service ssh
+  ansible.posix.firewalld:
+    service: ssh
+    permanent: true
+    immediate: true
+    state: enabled
+  when: "'web' not in group_names and 'mon' not in group_names"
