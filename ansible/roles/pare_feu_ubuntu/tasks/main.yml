@@ -1,0 +1,31 @@
+---
+- name: Paquet ufw
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+
+# Les règles d'autorisation passent AVANT l'activation : Ansible (depuis le bastion) n'est jamais coupé.
+- name: Règles autorisées
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ item.src }}"
+    to_port: "{{ item.port }}"
+    proto: tcp
+    comment: "{{ item.commentaire }}"
+  loop: "{{ pare_feu_regles + pare_feu_regles_app }}"
+  loop_control:
+    label: "{{ item.commentaire }}"
+
+- name: Tout le reste est refusé en entrée
+  community.general.ufw:
+    direction: incoming
+    default: deny
+
+- name: Sortie autorisée (mises à jour, heure, sauvegardes)
+  community.general.ufw:
+    direction: outgoing
+    default: allow
+
+- name: Pare-feu actif, au démarrage aussi
+  community.general.ufw:
+    state: enabled

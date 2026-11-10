@@ -1,25 +1,61 @@
 ---
-- name: Socle commun Linux
-  hosts: linux
+# Point d'entrée unique de la configuration Linux (A6).
+#   Production : ansible-playbook site.yml
+#   Labo (avant le domaine) : ansible-playbook site.yml --skip-tags base
+# Un second passage doit afficher changed=0.
+
+- name: Socle commun Rocky (domaine, DNS, heure sur les DC, SELinux, sudo AD, journaux)
+  hosts: linux:!app
   become: true
+  tags: [base]
   roles: [base]
 
-- name: Serveur web intranet
-  hosts: web
+- name: Socle commun à tous les Linux (correctifs, SSH durci)
+  hosts: linux
   become: true
-  roles: [web]
+  tags: [socle]
+  roles: [auto_updates, ssh_hardening]
+
+# LNX-MON01 installe déjà node_exporter avec le rôle mon : on ne le fait pas deux fois.
+- name: Métriques pour Prometheus
+  hosts: linux:!mon
+  become: true
+  tags: [metriques]
+  roles: [node_exporter]
+
+- name: Pare-feu Ubuntu (LNX-APP01)
+  hosts: app
+  become: true
+  tags: [pare_feu]
+  roles: [pare_feu_ubuntu]
 
 - name: Bastion, sauvegardes, stockage
   hosts: ops
   become: true
+  tags: [ops]
   roles: [ops]
+
+# Après "ops" : la clé publique du compte backup doit exister sur LNX-OPS01.
+- name: Machines sauvegardées par LNX-OPS01
+  hosts: linux:!ops
+  become: true
+  tags: [sauvegardes]
+  roles: [backup_target]
+
+- name: Serveur web intranet
+  hosts: web
+  become: true
+  tags: [web]
+  roles: [web]
 
 - name: Supervision et journaux
   hosts: mon
   become: true
+  tags: [mon]
   roles: [mon]
 
 - name: Passerelles (bonus)
   hosts: gw
   become: true
+  tags: [gw]
   roles: [gw]

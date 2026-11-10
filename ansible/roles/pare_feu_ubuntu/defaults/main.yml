@@ -1,0 +1,9 @@
+---
+# Pare-feu réduit au nécessaire sur LNX-APP01 (B5), équivalent de firewalld sur les Rocky.
+# SSH uniquement depuis le bastion, métriques uniquement depuis la supervision.
+pare_feu_regles:
+  - {src: "{{ bastion_ip }}", port: "22", commentaire: "SSH depuis le bastion LNX-OPS01"}
+  - {src: "{{ mon_ip }}", port: "9100", commentaire: "node_exporter pour LNX-MON01"}
+# Ports de l'application, à ajouter ici si besoin, par exemple :
+#   - {src: "any", port: "8080", commentaire: "Application"}
+pare_feu_regles_app: []
