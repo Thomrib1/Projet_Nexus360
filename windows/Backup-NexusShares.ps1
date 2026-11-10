@@ -1,5 +1,5 @@
-[CmdletBinding(SupportsShouldProcess)]
-param([string]$ConfigPath = (Join-Path $PSScriptRoot '..\config\backup.json'))
+﻿[CmdletBinding(SupportsShouldProcess)]
+param([string]$ConfigPath = (Join-Path $PSScriptRoot 'config\backup.json'))
 $ErrorActionPreference = 'Stop'
 $c = Get-Content $ConfigPath -Raw | ConvertFrom-Json
 $target = Join-Path $c.Destination (Get-Date -Format 'yyyyMMdd-HHmmss')

@@ -1,11 +1,11 @@
-<#
+﻿<#
 .SYNOPSIS
   Configure la recuperation automatique des services critiques (C1, A7).
   Idempotent : un second passage affiche 0 changement. Supporte -WhatIf.
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [string]$ConfigPath = (Join-Path $PSScriptRoot '..\config\services.json'),
+    [string]$ConfigPath = (Join-Path $PSScriptRoot 'config\services.json'),
     [string]$ComputerName = $env:COMPUTERNAME
 )
 $ErrorActionPreference = 'Stop'

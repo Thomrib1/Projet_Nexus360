@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Bloque les executables sur les partages (FSRM file screening), pilote par config/filescreen.json.
 .DESCRIPTION
@@ -7,8 +7,8 @@
 #Requires -RunAsAdministrator
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [string]$ConfigPath      = (Join-Path $PSScriptRoot '..\config\filescreen.json'),
-    [string]$ShareConfigPath = (Join-Path $PSScriptRoot '..\config\shares.json')
+    [string]$ConfigPath      = (Join-Path $PSScriptRoot 'config\filescreen.json'),
+    [string]$ShareConfigPath = (Join-Path $PSScriptRoot 'config\shares.json')
 )
 
 $ErrorActionPreference = 'Stop'

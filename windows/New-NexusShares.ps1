@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Cree les dossiers, partages SMB, droits NTFS et quotas FSRM decrits dans config/shares.json.
 .DESCRIPTION
@@ -12,7 +12,7 @@
 #Requires -RunAsAdministrator
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [string]$ConfigPath = (Join-Path $PSScriptRoot '..\config\shares.json')
+    [string]$ConfigPath = (Join-Path $PSScriptRoot 'config\shares.json')
 )
 
 $ErrorActionPreference = 'Stop'
