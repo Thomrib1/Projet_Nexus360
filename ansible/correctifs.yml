@@ -1,0 +1,96 @@
+---
+# Application manuelle des correctifs de sécurité, avec rapport avant/après par machine (B4).
+# Voir docs/linux/politique-correctifs.md et docs/linux/runbook-correctifs.md.
+#
+#   Anneau 1 : ansible-playbook correctifs.yml -l lnx-app01,lnx-mon01
+#   Anneau 2 : ansible-playbook correctifs.yml -l lnx-web01,lnx-ops01
+#   Avec redémarrage si le noyau l'exige : ajouter -e correctifs_reboot=true
+#
+# Rapports écrits sur LNX-OPS01 dans ~/rapports-correctifs/<date>/<machine>-avant.txt et -apres.txt
+
+- name: Correctifs de sécurité Linux
+  hosts: linux
+  become: true
+  serial: 1            # une machine à la fois : si l'une casse, on s'arrête là
+  max_fail_percentage: 0
+  vars:
+    correctifs_reboot: false
+    rapport_dir: "{{ lookup('env', 'HOME') }}/rapports-correctifs/{{ lookup('pipe', 'date +%F') }}"
+    cmd_etat_rocky: >-
+      echo "== $(hostname) $(date '+%F %T')"; echo "Noyau : $(uname -r)";
+      echo "== Noyau le plus récent installé : $(rpm -q kernel --last | head -1 | cut -d' ' -f1)";
+      echo "== Correctifs de sécurité en attente"; LC_ALL=C dnf -q check-update --security || true;
+      echo "== Redémarrage requis"; LC_ALL=C dnf -q needs-restarting -r >/dev/null 2>&1 && echo non || echo oui;
+      echo "== Dernières opérations dnf"; dnf history list | head -6
+    cmd_etat_ubuntu: >-
+      echo "== $(hostname) $(date '+%F %T')"; echo "Noyau : $(uname -r)";
+      echo "== Paquets à mettre à jour"; LC_ALL=C apt list --upgradable 2>/dev/null | grep -v '^Listing' || true;
+      echo "== Redémarrage requis"; cat /var/run/reboot-required 2>/dev/null || echo non
+
+  tasks:
+    - name: Dossier des rapports (sur LNX-OPS01)
+      ansible.builtin.file:
+        path: "{{ rapport_dir }}"
+        state: directory
+        mode: "0750"
+      delegate_to: localhost
+      become: false
+
+    - name: État AVANT
+      ansible.builtin.shell: "{{ cmd_etat_rocky if ansible_os_family == 'RedHat' else cmd_etat_ubuntu }}"
+      register: avant
+      changed_when: false
+
+    - name: Rapport AVANT
+      ansible.builtin.copy:
+        content: "{{ avant.stdout }}\n"
+        dest: "{{ rapport_dir }}/{{ inventory_hostname }}-avant.txt"
+        mode: "0640"
+      delegate_to: localhost
+      become: false
+
+    - name: Correctifs de sécurité (Rocky)
+      ansible.builtin.dnf:
+        name: "*"
+        security: true
+        state: latest
+      when: ansible_os_family == "RedHat"
+
+    - name: Correctifs de sécurité (Ubuntu)
+      ansible.builtin.command: unattended-upgrade
+      when: ansible_os_family == "Debian"
+      changed_when: true
+
+    - name: Redémarrage nécessaire ? (Rocky)
+      ansible.builtin.command: dnf needs-restarting -r
+      register: besoin_rocky
+      failed_when: besoin_rocky.rc > 1
+      changed_when: false
+      when: ansible_os_family == "RedHat"
+
+    - name: Redémarrage nécessaire ? (Ubuntu)
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: besoin_ubuntu
+      when: ansible_os_family == "Debian"
+
+    - name: Redémarrage (seulement si demandé avec correctifs_reboot=true)
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+      when:
+        - correctifs_reboot | bool
+        - inventory_hostname != 'lnx-ops01'   # on ne redémarre pas le nœud qui pilote Ansible
+        - (besoin_rocky.rc | default(0)) == 1 or (besoin_ubuntu.stat.exists | default(false))
+
+    - name: État APRÈS
+      ansible.builtin.shell: "{{ cmd_etat_rocky if ansible_os_family == 'RedHat' else cmd_etat_ubuntu }}"
+      register: apres
+      changed_when: false
+
+    - name: Rapport APRÈS
+      ansible.builtin.copy:
+        content: "{{ apres.stdout }}\n"
+        dest: "{{ rapport_dir }}/{{ inventory_hostname }}-apres.txt"
+        mode: "0640"
+      delegate_to: localhost
+      become: false

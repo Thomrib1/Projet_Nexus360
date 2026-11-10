@@ -29,13 +29,7 @@
     mode: "0600"
   notify: restart sssd
 
-- name: Durcissement SSH
-  ansible.builtin.template:
-    src: 50-nexus360.conf.j2
-    dest: /etc/ssh/sshd_config.d/50-nexus360.conf
-    mode: "0600"
-    validate: /usr/sbin/sshd -t -f %s
-  notify: restart sshd
+# Durcissement SSH : fait par le rôle ssh_hardening (un seul endroit, pas de conflit).
 
 - name: sudo par groupe AD (restreint pour l'exploitation)
   ansible.builtin.template:
@@ -44,23 +38,7 @@
     mode: "0440"
     validate: /usr/sbin/visudo -cf %s
 
-- name: dnf-automatic, sécurité uniquement
-  ansible.builtin.copy:
-    dest: /etc/dnf/automatic.conf
-    mode: "0644"
-    content: |
-      [commands]
-      upgrade_type = security
-      apply_updates = yes
-      random_sleep = 3600
-      [emitters]
-      emit_via = stdio
-
-- name: Timer dnf-automatic activé
-  ansible.builtin.systemd:
-    name: dnf-automatic.timer
-    enabled: true
-    state: started
+# Correctifs automatiques (dnf-automatic) : faits par le rôle auto_updates.
 
 - name: Journaux envoyés à LNX-MON01 (rsyslog TCP)
   ansible.builtin.copy:
@@ -72,9 +50,11 @@
   when: inventory_hostname != 'lnx-mon01'
   notify: restart rsyslog
 
+# SSH ouvert à tous sauf sur WEB01 et MON01, où il est limité au bastion (B5, rôles web et mon).
 - name: Pare-feu, service ssh
   ansible.posix.firewalld:
     service: ssh
     permanent: true
     immediate: true
     state: enabled
+  when: "'web' not in group_names and 'mon' not in group_names"
